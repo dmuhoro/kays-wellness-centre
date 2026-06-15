@@ -30,3 +30,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Third-party scaffolding metadata (not deployed, not tracked)
+.lovable/

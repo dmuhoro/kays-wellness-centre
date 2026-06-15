@@ -62,8 +62,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:title", content: "Dr. Jacqueline Mwanu, MD | Kay's Wellness Centre" },
       { name: "twitter:description", content: "Moving from Firefighting Illness to Striving for True Wellness. Evidence-based, root-cause healing by Dr. Jacqueline Mwanu, MD, MBChB, MPH, IHDiP." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/e1512a02-7078-4186-9fbb-03aa726fd608" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/e1512a02-7078-4186-9fbb-03aa726fd608" },
+      { property: "og:image", content: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=1200&q=80" },
+      { name: "twitter:image", content: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=1200&q=80" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
