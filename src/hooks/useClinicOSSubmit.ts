@@ -4,8 +4,10 @@ import type { ClinicOSLeadPacket, SubmitStatus } from "./clinic-os-types";
 import { computeTriagePriority, sanitizeInput, collectTelemetry } from "./clinic-os-types";
 
 const STORAGE_KEY = "kwc_pending_submissions";
+const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
 
 function getPending(): ClinicOSLeadPacket[] {
+  if (!isBrowser) return [];
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
   } catch {
@@ -14,12 +16,14 @@ function getPending(): ClinicOSLeadPacket[] {
 }
 
 function addPending(packet: ClinicOSLeadPacket) {
+  if (!isBrowser) return;
   const pending = getPending();
   pending.push(packet);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
 }
 
 function clearPending() {
+  if (!isBrowser) return;
   localStorage.removeItem(STORAGE_KEY);
 }
 
@@ -49,7 +53,7 @@ function buildPacket(input: {
 
 export function useClinicOSSubmit() {
   const [status, setStatus] = useState<SubmitStatus>("idle");
-  const onlineRef = useRef(navigator.onLine);
+  const onlineRef = useRef(isBrowser ? navigator.onLine : true);
 
   const flushQueue = useCallback(async () => {
     const pending = getPending();
@@ -101,7 +105,7 @@ export function useClinicOSSubmit() {
       setStatus("submitting");
       const packet = buildPacket(input);
 
-      if (!navigator.onLine) {
+      if (!isBrowser || !navigator.onLine) {
         addPending(packet);
         setStatus("success");
         toast.success("Inquiry saved offline", {

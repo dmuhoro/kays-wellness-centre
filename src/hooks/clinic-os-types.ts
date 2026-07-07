@@ -39,13 +39,16 @@ export function sanitizeInput(value: string): string {
 }
 
 export function collectTelemetry() {
+  const hasNav = typeof navigator !== "undefined";
   return {
     connectionType:
-      (navigator as Navigator & { connection?: { effectiveType: string } }).connection
-        ?.effectiveType || "unknown",
-    onlineStatus: navigator.onLine,
+      hasNav
+        ? (navigator as Navigator & { connection?: { effectiveType: string } }).connection
+            ?.effectiveType || "unknown"
+        : "server",
+    onlineStatus: hasNav ? navigator.onLine : true,
     localTimestamp: new Date().toISOString(),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    userAgent: navigator.userAgent,
+    userAgent: hasNav ? navigator.userAgent : "server",
   };
 }
