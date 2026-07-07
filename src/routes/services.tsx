@@ -1,23 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Heart, Activity, Leaf, Brain, FlaskConical, Pill, Home, Stethoscope, Scan, TestTube, HandHeart, Waves, ArrowRight } from "lucide-react";
+import { Heart, Leaf, FlaskConical, Shield, Pill, Home, Stethoscope, Scan, TestTube, HandHeart, Waves, ArrowRight, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/services")({
   head: () => ({
     meta: [
-      { title: "Clinical Services | Dr. Jacqueline Mwanu | Kay's Wellness Centre" },
-      { name: "description", content: "Integrative, root-cause clinical protocols for digestive care, metabolic optimization, endocrine health, and lifestyle diseases." },
-      { property: "og:title", content: "Clinical Services — Kay's Wellness Centre" },
-      { property: "og:description", content: "Integrative, root-cause clinical protocols for digestive care, metabolic optimization, endocrine health, and lifestyle diseases." },
+      { title: "Premium Functional Medicine Services | Kay's Wellness Centre — Nairobi" },
+      { name: "description", content: "Bespoke BHRT, IV nutritional therapy, chronic disease management, and functional weight optimization for executives and professionals in Kenya." },
+      { property: "og:title", content: "Premium Functional Medicine — Kay's Wellness Centre" },
+      { property: "og:description", content: "Bespoke BHRT, IV nutritional therapy, chronic disease management, and functional weight optimization for executives and professionals." },
     ],
   }),
   component: Services,
 });
 
 const treatments = [
-  { icon: Leaf, title: "Digestive Conditions", desc: "Microbiome Restoration, Chronic H. Pylori eradication protocols, IBS management, and Gut-Lining Repair — resolved through gut-lining repair protocols, targeted diagnostics, and clinical nutrition." },
-  { icon: Heart, title: "Hormone & Endocrine Disorders", desc: "Cellular Insulin Sensitivity, Metabolic Optimization, and Thyroid Health — including PCOS, perimenopause, and adrenal recovery guided by functional endocrine panels." },
-  { icon: Brain, title: "Autoimmune Conditions", desc: "Hashimoto's, lupus, and rheumatoid arthritis — addressed through gut-immune axis repair, anti-inflammatory nutrition, and environmental trigger mapping." },
-  { icon: Activity, title: "Lifestyle & Metabolic Diseases", desc: "Proactive, multi-modal management and reversal protocols for Hypertension and Type 2 Diabetes — through evidence-based lifestyle medicine, movement prescription, and clinical nutrition." },
+  { icon: Heart, title: "Bioidentical Hormone Replacement Therapy (BHRT)", desc: "Precision-compounded bioidentical hormones meticulously tailored to restore endocrine equilibrium. Designed for executives and professionals experiencing adrenal fatigue, perimenopausal imbalance, and andropause — delivered under rigorous functional diagnostic protocol." },
+  { icon: FlaskConical, title: "Intravenous (IV) Nutritional Therapy & Detoxification", desc: "Therapeutic-grade intravenous nutrient formulations administered in-clinic for rapid cellular replenishment, deep detoxification, and immune system fortification. Each drip is bespoke-compounded to your biomarker profile." },
+  { icon: Shield, title: "Chronic Disease Management & Cellular Wellness", desc: "Advanced cellular health optimisation for hypertension, type 2 diabetes, and metabolic syndrome — combining mitochondrial support, inflammation quenching, and precision nutraceutical intervention for measurable reversal." },
+  { icon: Leaf, title: "Functional Weight Management & Metabolic Optimization", desc: "Physician-supervised metabolic reconfiguration integrating body composition analysis, gut microbiome assessment, and DNA-informed nutrition strategies. Sustainable, science-driven — never generic." },
 ];
 
 const offerings = [
@@ -37,17 +37,17 @@ function Services() {
       <section className="py-20 sm:py-24 relative overflow-hidden">
         <div className="absolute inset-0 pattern-mudcloth opacity-40 pointer-events-none" />
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-xs uppercase tracking-widest text-accent font-semibold mb-3">Whole-Person, Whole-System Care</p>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight max-w-3xl mx-auto">Integrative care, <span className="text-gradient">rooted in the cause</span></h1>
-          <p className="mt-5 text-lg text-muted-foreground max-w-2xl mx-auto">Every protocol combines rigorous conventional medicine with clinical nutrition, gut-lining repair, therapeutic coaching and mind-body modalities — meditation, stress management and yoga.</p>
+          <p className="text-xs uppercase tracking-widest text-accent font-semibold mb-3">Executive-Grade Functional Medicine</p>
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight max-w-3xl mx-auto">Bespoke medical protocols, <span className="text-gradient">engineered for your biology</span></h1>
+          <p className="mt-5 text-lg text-muted-foreground max-w-2xl mx-auto">Every protocol is custom-tailored to your biomarker profile, lifestyle, and health objectives. No templates. No shortcuts. Only precision, medical-grade functional medicine for those who demand the highest standard.</p>
         </div>
       </section>
 
       <section className="pb-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10">
-            <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Specialized Treatments</p>
-            <h2 className="text-2xl sm:text-3xl font-bold">Conditions we focus on</h2>
+            <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Core Protocols</p>
+            <h2 className="text-2xl sm:text-3xl font-bold">Precision functional medicine offerings</h2>
           </div>
           <div className="grid md:grid-cols-2 gap-5">
             {treatments.map((t, i) => (
@@ -70,8 +70,8 @@ function Services() {
       <section className="py-20 gradient-soft">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10">
-            <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Clinic Offerings</p>
-            <h2 className="text-2xl sm:text-3xl font-bold">Everything you need in one place</h2>
+            <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Premium Clinical Ecosystem</p>
+            <h2 className="text-2xl sm:text-3xl font-bold">Everything you need, under one roof</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {offerings.map((o, i) => (

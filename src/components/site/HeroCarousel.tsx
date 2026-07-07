@@ -10,21 +10,21 @@ const bgImages = [
 
 const slides = [
   {
-    tag: "Root-Cause Medicine",
-    title: "Moving from Firefighting Illness to Striving for True Wellness.",
-    desc: "Evidence-based, root-cause healing designed specifically for chronic, metabolic, and digestive conditions.",
+    tag: "Executive-Grade Medicine",
+    title: "Precision healthcare for the high-performance life.",
+    desc: "Bespoke functional medicine protocols engineered for corporate leaders, executives, and professionals who demand the same rigour from their health as they do from their careers.",
     bg: 0,
   },
   {
-    tag: "Whole-Person Care",
-    title: "A whole-person, whole-system assessment.",
-    desc: "We combine rigorous conventional medicine with clinical nutrition, gut-lining repair, therapeutic coaching, and functional diagnostics.",
+    tag: "Total Biological Optimisation",
+    title: "Your biology, decoded. Your vitality, restored.",
+    desc: "Advanced diagnostics, IV nutritional therapy, BHRT, and metabolic re-tuning — delivered under one premium clinical roof. Every protocol is custom-tailored, never off-the-shelf.",
     bg: 1,
   },
   {
-    tag: "Shifting the Culture",
-    title: "Reimagining healthcare across Africa.",
-    desc: "Led by Dr. Jacqueline Mwanu, MD, MBChB, MPH, IHDiP — a Public Health Physician & Functional/Integrative Medicine Specialist moving our communities toward proactive, empowered health.",
+    tag: "The Kay's Standard",
+    title: "Where medical science meets African luxury.",
+    desc: "Led by Dr. Jacqueline Mwanu, MD, MBChB, MPH, IHDiP — bringing world-class functional medicine to Kenya's elite. Precision, discretion, and bespoke care for those who accept nothing less.",
     bg: 0,
   },
 ];

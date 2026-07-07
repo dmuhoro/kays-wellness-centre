@@ -4,33 +4,33 @@ import { WellnessTips } from "@/components/site/WellnessTips";
 import { Testimonials } from "@/components/site/Testimonials";
 import { BookingWidget } from "@/components/site/BookingWidget";
 import { AskQuestion } from "@/components/site/AskQuestion";
-import { Activity, Heart, Brain, Leaf, ArrowRight, Shield, Microscope, HandHeart, Globe2, GraduationCap, Sparkles } from "lucide-react";
+import { Activity, Heart, Leaf, ArrowRight, Shield, Microscope, HandHeart, Globe2, GraduationCap, Sparkles, FlaskConical } from "lucide-react";
 const hero = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1920&q=80";
 const drJackie = "https://images.unsplash.com/photo-1594824813573-246434e33963?auto=format&fit=crop&w=800&q=80";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Kay's Wellness Centre — Holistic Medical Care in Kenya" },
-      { name: "description", content: "Evidence-based functional medicine. Hormone, digestive, autoimmune and lifestyle care rooted in modern diagnostics." },
-      { property: "og:title", content: "Kay's Wellness Centre" },
-      { property: "og:description", content: "Holistic, evidence-based medical care for lasting wellness." },
+      { title: "Kay's Wellness Centre — Premium Functional Medicine | Nairobi, Kenya" },
+      { name: "description", content: "Bespoke BHRT, IV nutritional therapy, chronic disease management, and functional weight optimisation for executives and professionals. Precision medicine, African luxury." },
+      { property: "og:title", content: "Kay's Wellness Centre — Premium Functional Medicine" },
+      { property: "og:description", content: "Bespoke functional medicine for executives. BHRT, IV therapy, chronic disease reversal, and metabolic optimisation in Nairobi." },
     ],
   }),
   component: Home,
 });
 
 const focusAreas = [
-  { icon: Leaf, title: "Digestive Health", desc: "Microbiome Restoration, Chronic H. Pylori eradication protocols, IBS management, and Gut-Lining Repair." },
-  { icon: Heart, title: "Hormone & Endocrine", desc: "Cellular Insulin Sensitivity, Metabolic Optimization, and Thyroid Health." },
-  { icon: Brain, title: "Autoimmune Care", desc: "Hashimoto's, lupus, and rheumatoid arthritis — gut-immune axis repair, trigger mapping, and anti-inflammatory clinical nutrition." },
-  { icon: Activity, title: "Lifestyle Diseases", desc: "Proactive, multi-modal management and reversal protocols for Hypertension and Type 2 Diabetes." },
+  { icon: Heart, title: "Bioidentical Hormone Replacement Therapy (BHRT)", desc: "Precision-compounded hormones tailored to your endocrine profile. Restore vitality, correct adrenal fatigue, and rebalance perimenopause or andropause." },
+  { icon: FlaskConical, title: "IV Nutritional Therapy & Detoxification", desc: "Therapeutic-grade intravenous nutrient drips bespoke-compounded to your biomarker panel for rapid cellular replenishment and deep detoxification." },
+  { icon: Shield, title: "Chronic Disease & Cellular Wellness", desc: "Advanced mitochondrial support and inflammation quenching for hypertension, type 2 diabetes, and metabolic syndrome — designed for measurable reversal." },
+  { icon: Leaf, title: "Functional Weight Management & Metabolic Optimization", desc: "Physician-supervised metabolic reconfiguration with body composition analysis, gut microbiome assessment, and DNA-informed nutrition strategies." },
 ];
 
 const trust = [
-  { icon: Shield, label: "Evidence-Based" },
-  { icon: Microscope, label: "Functional Diagnostics" },
-  { icon: HandHeart, label: "Whole-Person Care" },
+  { icon: Shield, label: "Bespoke Medical Protocols" },
+  { icon: Microscope, label: "Advanced Functional Diagnostics" },
+  { icon: HandHeart, label: "Executive-Grade Care" },
 ];
 
 function Home() {
@@ -71,9 +71,9 @@ function Home() {
       <section className="py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Our Focus</p>
-            <h2 className="text-3xl sm:text-4xl font-bold">Care for the whole person</h2>
-            <p className="mt-4 text-muted-foreground">We blend modern diagnostics with functional medicine to address the root causes of chronic conditions.</p>
+            <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Our Core Protocols</p>
+            <h2 className="text-3xl sm:text-4xl font-bold">Precision medicine for the high-performance life</h2>
+            <p className="mt-4 text-muted-foreground">Bespoke functional medicine protocols engineered for executives and professionals who demand the same rigor from their health as they do from their careers.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {focusAreas.map((f, i) => (
@@ -106,20 +106,20 @@ function Home() {
             </div>
             <div className="lg:col-span-3 animate-fade-up">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary border-warm text-xs font-semibold text-primary uppercase tracking-widest">
-                <Globe2 className="size-3.5 text-accent" /> Global Mission
+                <Globe2 className="size-3.5 text-accent" /> Our Mission
               </div>
-              <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Shifting the culture of healthcare.</h2>
+              <h2 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Redefining healthcare for Africa's leaders.</h2>
               <p className="mt-5 text-lg text-muted-foreground leading-relaxed">
-                Led by <span className="font-semibold text-foreground">Dr. Jacqueline Mwanu, MD, MBChB, MPH, IHDiP</span> — a Public Health Physician & Functional/Integrative Medicine Specialist — Kay's Wellness Centre is reshaping how communities across Kenya and the African continent engage with their health.
+                Led by <span className="font-semibold text-foreground">Dr. Jacqueline Mwanu, MD, MBChB, MPH, IHDiP</span> — a Public Health Physician & Functional/Integrative Medicine Specialist — Kay's Wellness Centre brings world-class precision medicine to Kenya's corporate and professional elite.
               </p>
               <p className="mt-4 text-muted-foreground leading-relaxed">
-                Our practice is built on a global public-health worldview: moving people from reactive crisis-management toward proactive, empowered, root-cause health-seeking habits. Prevention before prescription. Dignity before diagnosis.
+                We replace the reactive, crisis-driven model with proactive, data-backed, cellular-level health optimisation. Every protocol is bespoke. Every decision is evidence-based. Every patient is treated with the discretion and dignity befitting a premium medical practice.
               </p>
               <div className="mt-7 grid sm:grid-cols-3 gap-3">
                 {[
-                  { k: "Reactive → Proactive", v: "Crisis care to prevention" },
-                  { k: "Symptom → Root", v: "Address upstream causes" },
-                  { k: "Patient → Partner", v: "Shared, dignified decisions" },
+                  { k: "Reactive → Proactive", v: "Biomarker-driven prevention" },
+                  { k: "Generic → Bespoke", v: "Tailored to your biology" },
+                  { k: "Patient → Partner", v: "Shared, high-agency decisions" },
                 ].map((s) => (
                   <div key={s.k} className="glass rounded-2xl p-4 border-warm">
                     <div className="text-sm font-semibold text-primary">{s.k}</div>
@@ -132,7 +132,7 @@ function Home() {
                   Meet Dr. Jacqueline Mwanu <ArrowRight className="size-4" />
                 </Link>
                 <Link to="/services" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl glass font-semibold hover:bg-secondary border-warm">
-                  Our Integrative Care
+                  View All Protocols
                 </Link>
               </div>
             </div>
@@ -146,8 +146,8 @@ function Home() {
       <section className="py-20 sm:py-28 gradient-soft">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Start Your Journey</p>
-            <h2 className="text-3xl sm:text-4xl font-bold">Book a consultation or ask us anything</h2>
+            <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Begin Your Transformation</p>
+            <h2 className="text-3xl sm:text-4xl font-bold">Book a consultation or speak with our team</h2>
           </div>
           <div className="grid lg:grid-cols-2 gap-8">
             <BookingWidget />
@@ -164,10 +164,10 @@ function Home() {
           <div className="relative overflow-hidden rounded-3xl gradient-hero p-10 sm:p-16 text-center shadow-elegant">
             <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 30% 20%, white 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
             <div className="relative">
-              <h2 className="text-3xl sm:text-5xl font-bold text-primary-foreground tracking-tight">Moving from Firefighting Illness to Striving for True Wellness.</h2>
-              <p className="mt-4 text-primary-foreground/85 max-w-xl mx-auto">Book your first 1-hour in-depth, fully confidential consultation today — and start treating the root cause.</p>
+              <h2 className="text-3xl sm:text-5xl font-bold text-primary-foreground tracking-tight">From surviving to thriving — precision medicine for the discerning few.</h2>
+              <p className="mt-4 text-primary-foreground/85 max-w-xl mx-auto">Book your comprehensive 90-minute executive health consultation. Fully confidential. Entirely bespoke. The first step toward your biological optimisation begins here.</p>
               <Link to="/contact" className="mt-8 inline-flex items-center gap-2 px-7 py-4 rounded-xl bg-background text-primary font-semibold shadow-elegant hover:scale-[1.02] transition-transform">
-                Book Now <ArrowRight className="size-4" />
+                Reserve Your Consultation <ArrowRight className="size-4" />
               </Link>
             </div>
           </div>
