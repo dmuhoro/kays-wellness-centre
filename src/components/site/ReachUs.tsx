@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Send, Mail, User, ChevronDown, CheckCircle, Loader2 } from "lucide-react";
+import { Send, Mail, User, ChevronDown, CheckCircle, Loader2, Shield } from "lucide-react";
 import { useClinicOSSubmit } from "@/hooks/useClinicOSSubmit";
 import { serviceOptions } from "@/data/specialties";
 
 type FormErrors = Partial<Record<"name" | "email" | "service", string>>;
 
-function validate(data: Record<string, string>): FormErrors {
+function validate(data: { name: string; email: string; service: string }): FormErrors {
   const errors: FormErrors = {};
   if (!data.name?.trim()) errors.name = "Full name is required";
   if (!data.email?.trim()) errors.email = "Email address is required";
@@ -16,7 +16,7 @@ function validate(data: Record<string, string>): FormErrors {
 }
 
 export function ReachUs() {
-  const { submit, status } = useClinicOSSubmit();
+  const { submit, status, reset } = useClinicOSSubmit();
   const [formData, setFormData] = useState({ name: "", email: "", service: "" });
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Set<string>>(new Set());
@@ -51,15 +51,19 @@ export function ReachUs() {
         <div className="size-14 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
           <CheckCircle className="size-7 text-emerald-600" />
         </div>
-        <h4 className="font-semibold text-foreground mb-1">Message sent in confidence</h4>
-        <p className="text-sm text-muted-foreground">
-          Our clinical team will respond within 24 hours.
+        <h4 className="font-semibold text-foreground mb-1">Clinical validation vector initiated</h4>
+        <p className="text-sm text-muted-foreground mb-3">
+          Our private coordinator will reach out in confidence.
         </p>
+        <div className="inline-flex items-center gap-1.5 text-xs text-accent font-semibold bg-accent/5 rounded-full px-3 py-1.5 border border-accent/20">
+          <Shield className="size-3" /> End-to-end encrypted
+        </div>
         <button
           onClick={() => {
             setFormData({ name: "", email: "", service: "" });
             setErrors({});
             setTouched(new Set());
+            reset();
           }}
           className="mt-4 text-sm font-semibold text-accent hover:text-accent/80 transition-colors"
         >

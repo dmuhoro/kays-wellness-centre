@@ -1,29 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
-
-interface NavigatorWithConnection extends Navigator {
-  connection?: { effectiveType: string };
-}
-
-type SubmissionPayload = {
-  Client_Lead_Source: "Online_Front_Door";
-  Payload_Timestamp: string;
-  formData: Record<string, string>;
-  userMetrics: {
-    userAgent: string;
-    language: string;
-    referrer: string;
-    timezone: string;
-    screenResolution: string;
-    connectionType: string;
-  };
-};
-
-type SubmitStatus = "idle" | "submitting" | "success" | "error";
+import type { ClinicOSLeadPacket, SubmitStatus } from "./clinic-os-types";
+import { computeTriagePriority, sanitizeInput, collectTelemetry } from "./clinic-os-types";
 
 const STORAGE_KEY = "kwc_pending_submissions";
 
-function getPendingSubmissions(): Record<string, string>[] {
+function getPending(): ClinicOSLeadPacket[] {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
   } catch {
@@ -31,34 +13,38 @@ function getPendingSubmissions(): Record<string, string>[] {
   }
 }
 
-function addPendingSubmission(data: Record<string, string>) {
-  const pending = getPendingSubmissions();
-  pending.push({ ...data, _cachedAt: new Date().toISOString() });
+function addPending(packet: ClinicOSLeadPacket) {
+  const pending = getPending();
+  pending.push(packet);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(pending));
 }
 
-function clearPendingSubmissions() {
+function clearPending() {
   localStorage.removeItem(STORAGE_KEY);
-}
-
-function buildPayload(formData: Record<string, string>): SubmissionPayload {
-  return {
-    Client_Lead_Source: "Online_Front_Door",
-    Payload_Timestamp: new Date().toISOString(),
-    formData,
-    userMetrics: {
-      userAgent: navigator.userAgent,
-      language: navigator.language,
-      referrer: document.referrer || "direct",
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      screenResolution: `${window.screen.width}x${window.screen.height}`,
-      connectionType: (navigator as NavigatorWithConnection).connection?.effectiveType || "unknown",
-    },
-  };
 }
 
 function simulateSuccess(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 1200));
+}
+
+function buildPacket(input: {
+  name: string;
+  email: string;
+  service: string;
+  phone?: string;
+  channel?: string;
+}): ClinicOSLeadPacket {
+  const name = sanitizeInput(input.name);
+  const email = sanitizeInput(input.email).toLowerCase();
+  const service = sanitizeInput(input.service);
+  return {
+    Client_Lead_Source: "Online_Front_Door",
+    Payload_Timestamp: new Date().toISOString(),
+    capture_channel: "Web_Premium_Front_Door",
+    formData: { name, email, service, phone: input.phone, channel: input.channel },
+    triage_priority: computeTriagePriority(service),
+    device_telemetry: collectTelemetry(),
+  };
 }
 
 export function useClinicOSSubmit() {
@@ -66,42 +52,36 @@ export function useClinicOSSubmit() {
   const onlineRef = useRef(navigator.onLine);
 
   const flushQueue = useCallback(async () => {
-    const pending = getPendingSubmissions();
+    const pending = getPending();
     if (pending.length === 0) return;
 
     for (const entry of pending) {
       try {
         setStatus("submitting");
-        console.log(
-          "[ClinicOS] Flushing cached submission:",
-          JSON.stringify(buildPayload(entry), null, 2),
-        );
+        console.log("[ClinicOS] Flushing cached:", JSON.stringify(entry, null, 2));
         await simulateSuccess();
       } catch {
         return;
       }
     }
-    clearPendingSubmissions();
+    clearPending();
   }, []);
 
   useEffect(() => {
     const handleOnline = () => {
       onlineRef.current = true;
-      const pending = getPendingSubmissions();
-      if (pending.length > 0) {
+      if (getPending().length > 0) {
         toast.info("Connection restored — submitting pending inquiries...");
         flushQueue().then(() => {
-          if (getPendingSubmissions().length === 0) {
+          if (getPending().length === 0) {
             toast.success("All pending submissions sent successfully");
           }
         });
       }
     };
-
     const handleOffline = () => {
       onlineRef.current = false;
     };
-
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     return () => {
@@ -110,41 +90,43 @@ export function useClinicOSSubmit() {
     };
   }, [flushQueue]);
 
-  const submit = useCallback(async (formData: Record<string, string>): Promise<SubmitStatus> => {
-    setStatus("submitting");
+  const submit = useCallback(
+    async (input: {
+      name: string;
+      email: string;
+      service: string;
+      phone?: string;
+      channel?: string;
+    }): Promise<SubmitStatus> => {
+      setStatus("submitting");
+      const packet = buildPacket(input);
 
-    const payload = buildPayload(formData);
+      if (!navigator.onLine) {
+        addPending(packet);
+        setStatus("success");
+        toast.success("Inquiry saved offline", {
+          description: "We'll send it automatically when your connection returns.",
+        });
+        console.log("[ClinicOS] Cached offline:", JSON.stringify(packet, null, 2));
+        return "success";
+      }
 
-    if (!navigator.onLine) {
-      addPendingSubmission(formData);
-      setStatus("success");
-      toast.success("Inquiry saved offline", {
-        description: "We'll send it automatically when your connection returns.",
-      });
-      console.log("[ClinicOS] Offline — submission cached:", JSON.stringify(payload, null, 2));
-      return "success";
-    }
-
-    try {
-      console.log("[ClinicOS] Submission payload:", JSON.stringify(payload, null, 2));
-
-      await simulateSuccess();
-
-      setStatus("success");
-      toast.success("Inquiry received", {
-        description:
-          "Our medical team will respond within 24 hours. A confirmation has been sent to your email.",
-      });
-      return "success";
-    } catch (err) {
-      setStatus("error");
-      toast.error("Something went wrong", {
-        description: "Your inquiry has been saved locally. We'll retry sending when possible.",
-      });
-      addPendingSubmission(formData);
-      return "error";
-    }
-  }, []);
+      try {
+        console.log("[ClinicOS] Outbound:", JSON.stringify(packet, null, 2));
+        await simulateSuccess();
+        setStatus("success");
+        return "success";
+      } catch {
+        setStatus("error");
+        toast.error("Something went wrong", {
+          description: "Saved locally. We'll retry when possible.",
+        });
+        addPending(packet);
+        return "error";
+      }
+    },
+    [],
+  );
 
   const reset = useCallback(() => {
     setStatus("idle");
