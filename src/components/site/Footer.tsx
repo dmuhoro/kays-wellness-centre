@@ -1,5 +1,16 @@
 import { Link } from "@tanstack/react-router";
-import { Leaf, MapPin, Phone, Mail, Instagram, Facebook, Twitter, Shield } from "lucide-react";
+import {
+  Leaf,
+  MapPin,
+  Phone,
+  Mail,
+  Instagram,
+  Facebook,
+  Twitter,
+  Shield,
+  FileText,
+  Scale,
+} from "lucide-react";
 import { specialties } from "@/data/specialties";
 import { ReachUs } from "./ReachUs";
 
@@ -59,6 +70,25 @@ export function Footer() {
               <li>
                 <Link to="/contact" className="hover:text-primary">
                   Book a Visit
+                </Link>
+              </li>
+            </ul>
+            <h4 className="font-semibold mb-3 mt-6">Legal</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>
+                <Link
+                  to="/privacy-policy"
+                  className="inline-flex items-center gap-1.5 hover:text-primary transition-colors"
+                >
+                  <FileText className="size-3" /> Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/terms"
+                  className="inline-flex items-center gap-1.5 hover:text-primary transition-colors"
+                >
+                  <Scale className="size-3" /> Terms of Service
                 </Link>
               </li>
             </ul>

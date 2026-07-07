@@ -1,6 +1,7 @@
 # Sprint 9: Trojan Horse Activation & Data Architecture
 
 ## Timeline
+
 - **Sprint:** 9
 - **Focus:** Structured lead packet schema, triage engine, input sanitization, confirmation pane
 
@@ -9,6 +10,7 @@
 ## Founder Narrative
 
 Every patient inquiry that comes through the site now carries a structured clinical dossier behind it — not just a name and email dropped into a generic form. When someone fills out the booking widget or the Reach Us form, the system automatically:
+
 - Sanitizes every input (strips script tags, control characters, XSS vectors)
 - Assigns a triage priority (high/medium/low) based on the service selected
 - Stamps the submission with device telemetry (connection type, timezone, online status)
@@ -16,13 +18,14 @@ Every patient inquiry that comes through the site now carries a structured clini
 
 This means when the Clinic OS backend goes live next sprint, every lead arrives pre-triaged, pre-sanitized, and pre-structured — ready for the coordinator dashboard with zero data cleaning required.
 
-Patients get a cleaner experience too: the booking widget now has a 4th confirmation pane that clearly states *"Clinical validation vector initiated. Our private coordinator will reach out in confidence."* — no more guessing whether their request went through.
+Patients get a cleaner experience too: the booking widget now has a 4th confirmation pane that clearly states _"Clinical validation vector initiated. Our private coordinator will reach out in confidence."_ — no more guessing whether their request went through.
 
 ---
 
 ## Technical Execution
 
 ### 1. ClinicOSLeadPacket — Structured Envelope
+
 **File:** `src/hooks/clinic-os-types.ts`
 
 - **`ClinicOSLeadPacket` interface:**
@@ -48,6 +51,7 @@ Patients get a cleaner experience too: the booking widget now has a 4th confirma
 - **`collectTelemetry()`** — captures `connection.effectiveType`, `navigator.onLine`, local ISO timestamp, timezone, user agent
 
 ### 2. Hook Upgrade — `useClinicOSSubmit`
+
 **File:** `src/hooks/useClinicOSSubmit.ts`
 
 - **Input type changed** from `Record<string, string>` to `{ name, email, service, phone?, channel? }` — fully typed
@@ -61,6 +65,7 @@ Patients get a cleaner experience too: the booking widget now has a 4th confirma
 - **Console output** prints the full structured packet with `[ClinicOS]` prefix for log filtering
 
 ### 3. Booking Widget — Confirmation Pane & Triage Integration
+
 **File:** `src/components/site/BookingWidget.tsx`
 
 - **Services array** now uses `{ id, label }` objects instead of plain strings — IDs align with `specialties.ts` for triage resolution
@@ -79,6 +84,7 @@ Patients get a cleaner experience too: the booking widget now has a 4th confirma
 - **Design tokens**: Savannah Olive (`bg-primary`), Terracotta (`text-accent`, `border-accent/20`, `bg-accent/5`), `gradient-hero` CTAs, `glass` utility, `animate-fade-up`
 
 ### 4. Reach Us — Enhanced Success State
+
 **File:** `src/components/site/ReachUs.tsx`
 
 - Success state copy updated to match booking widget:
@@ -112,16 +118,18 @@ User submits form
 ---
 
 ## Files Created
-| File | Purpose |
-|------|---------|
+
+| File                           | Purpose                                                             |
+| ------------------------------ | ------------------------------------------------------------------- |
 | `src/hooks/clinic-os-types.ts` | `ClinicOSLeadPacket` interface, triage/sanitize/telemetry utilities |
 
 ## Files Modified
-| File | Change |
-|------|--------|
-| `src/hooks/useClinicOSSubmit.ts` | Typed input, full packet building, sanitization, triage, telemetry |
+
+| File                                    | Change                                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `src/hooks/useClinicOSSubmit.ts`        | Typed input, full packet building, sanitization, triage, telemetry                               |
 | `src/components/site/BookingWidget.tsx` | Services as `{id,label}`, email field, step 4 confirmation pane, `useClinicOSSubmit` integration |
-| `src/components/site/ReachUs.tsx` | Updated success copy to clinical validation language |
+| `src/components/site/ReachUs.tsx`       | Updated success copy to clinical validation language                                             |
 
 ---
 
@@ -130,10 +138,11 @@ User submits form
 When the backend endpoint is live:
 
 1. **`useClinicOSSubmit.ts`**: Replace `simulateSuccess()` with:
+
    ```typescript
-   const res = await fetch('https://api.clinic-os.com/intake', {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
+   const res = await fetch("https://api.clinic-os.com/intake", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
      body: JSON.stringify(packet),
    });
    if (!res.ok) throw new Error(`Clinic OS ${res.status}`);

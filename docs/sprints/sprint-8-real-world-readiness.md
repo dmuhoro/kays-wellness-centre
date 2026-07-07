@@ -1,6 +1,7 @@
 # Sprint 8: Real-World Readiness & Structural Completion
 
 ## Timeline
+
 - **Sprint:** 8
 - **Focus:** Interactive specialties with modal drill-down, offline-resilient contact form, Clinic OS integration hooks, CI/CD hardening
 
@@ -19,6 +20,7 @@ Under the hood, every form submission now fires a structured JSON payload stampe
 ## Technical Execution
 
 ### 1. Centralized Specialty Data Layer
+
 **File:** `src/data/specialties.ts`
 
 - Created a strongly-typed `Specialty[]` array with 8 clinical specialties:
@@ -34,6 +36,7 @@ Under the hood, every form submission now fires a structured JSON payload stampe
 - Exported `serviceOptions[]` for form dropdown consumption — single source of truth for all specialty references
 
 ### 2. Interactive Specialties Component
+
 **File:** `src/components/site/Specialties.tsx`
 
 - Renders responsive grid (1 → 2 → 4 columns across mobile → tablet → desktop)
@@ -46,6 +49,7 @@ Under the hood, every form submission now fires a structured JSON payload stampe
 - Integrated into `src/routes/index.tsx` as a dedicated "Precision Specialties" section between Founder Mission and WellnessTips
 
 ### 3. Trojan Horse Hook — `useClinicOSSubmit`
+
 **File:** `src/hooks/useClinicOSSubmit.ts`
 
 A unified submission hook designed as the integration point for a future Clinic OS backend:
@@ -74,6 +78,7 @@ A unified submission hook designed as the integration point for a future Clinic 
 - **Migration path**: Replace `simulateSuccess()` with a real `fetch()` call — zero structural changes needed
 
 ### 4. Reach Us Form Component
+
 **File:** `src/components/site/ReachUs.tsx`
 
 Replaces the static "Reach Us" footer column with a functional inquiry form:
@@ -91,23 +96,27 @@ Replaces the static "Reach Us" footer column with a functional inquiry form:
 - **Integrated into:** `src/components/site/Footer.tsx` — replaces the 4th column's static contact list with the form (contact info preserved above form)
 
 ### 5. Footer Modernization
+
 **File:** `src/components/site/Footer.tsx`
 
 - Specialties column: swapped static `<ul>` for dynamic `specialties.slice(0,6).map(...)` with `Link` to `/services` and `Shield` accent icon per item — stays in sync with `data/specialties.ts`
 - Reach Us column: contact info preserved, inline `ReachUs` form rendered below
 
 ### 6. Meta Fixes & Stale Asset Cleanup
+
 **File:** `src/routes/__root.tsx`
 
 - Fixed stale `og:image` URL (was pointing to a generic Unsplash clinic photo, now points to premium African wellness consultation image)
 - Updated `title`, `description`, `og:title`, `og:description`, `twitter:title`, `twitter:description` to consistent executive-grade copy reflecting actual services
 
 ### 7. Git Integration & Preview Deployment
+
 - Vercel Git integration confirmed active — every push to `main` auto-deploys via Vercel's GitHub App
 - SSO protection removed project-wide: preview deployments are now publicly accessible without login
 - Public preview URL: `https://kays-wellness-centre-ggs4yxmmj-dmuhor01.vercel.app`
 
 ### 8. CI/CD Pipeline
+
 **File:** `.github/workflows/deploy.yml`
 
 - **Triggers:** `push` and `pull_request` on `main`
@@ -116,6 +125,7 @@ Replaces the static "Reach Us" footer column with a functional inquiry form:
 - Removed stale `NITRO_PRESET` env vars (now configured in `vite.config.ts`)
 
 ### 9. Code Quality
+
 - Prettier formatting applied across all 11 source files (pre-existing formatting debt cleaned)
 - CI pipeline green — lint + build passes in ~30s
 
@@ -150,21 +160,23 @@ User fills ReachUs form
 ---
 
 ## Files Created
-| File | Purpose |
-|------|---------|
-| `src/data/specialties.ts` | Centralized specialty data with full protocol metadata |
-| `src/hooks/useClinicOSSubmit.ts` | Offline-resilient submission hook with console logging |
-| `src/components/site/Specialties.tsx` | Interactive card grid + modal drill-down |
-| `src/components/site/ReachUs.tsx` | Validated form with dropdown and offline retry |
+
+| File                                  | Purpose                                                |
+| ------------------------------------- | ------------------------------------------------------ |
+| `src/data/specialties.ts`             | Centralized specialty data with full protocol metadata |
+| `src/hooks/useClinicOSSubmit.ts`      | Offline-resilient submission hook with console logging |
+| `src/components/site/Specialties.tsx` | Interactive card grid + modal drill-down               |
+| `src/components/site/ReachUs.tsx`     | Validated form with dropdown and offline retry         |
 
 ## Files Modified
-| File | Change |
-|------|--------|
+
+| File                             | Change                                         |
+| -------------------------------- | ---------------------------------------------- |
 | `src/components/site/Footer.tsx` | Dynamic specialties list + ReachUs form inline |
-| `src/routes/index.tsx` | Added Specialties section, imported component |
-| `src/routes/__root.tsx` | Meta/og:image fixes |
-| `vite.config.ts` | Vercel preset (from earlier sprint) |
-| `.github/workflows/deploy.yml` | Simplified to quality-only, removed deploy job |
+| `src/routes/index.tsx`           | Added Specialties section, imported component  |
+| `src/routes/__root.tsx`          | Meta/og:image fixes                            |
+| `vite.config.ts`                 | Vercel preset (from earlier sprint)            |
+| `.github/workflows/deploy.yml`   | Simplified to quality-only, removed deploy job |
 
 ---
 
@@ -173,10 +185,11 @@ User fills ReachUs form
 When the Clinic OS backend is ready:
 
 1. **In `useClinicOSSubmit.ts`**: Replace `simulateSuccess()` with:
+
    ```typescript
-   const response = await fetch('https://api.clinic-os.com/intake', {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
+   const response = await fetch("https://api.clinic-os.com/intake", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
      body: JSON.stringify(payload),
    });
    if (!response.ok) throw new Error(`Clinic OS returned ${response.status}`);

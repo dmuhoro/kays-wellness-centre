@@ -5,6 +5,12 @@ import { computeTriagePriority, sanitizeInput, collectTelemetry } from "./clinic
 
 const STORAGE_KEY = "kwc_pending_submissions";
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
+const CLINIC_OS_WEBHOOK_URL =
+  typeof import.meta !== "undefined" &&
+  typeof import.meta.env !== "undefined" &&
+  typeof (import.meta.env as Record<string, unknown>).NEXT_PUBLIC_CLINIC_OS_WEBHOOK_URL === "string"
+    ? ((import.meta.env as Record<string, unknown>).NEXT_PUBLIC_CLINIC_OS_WEBHOOK_URL as string)
+    : undefined;
 
 function getPending(): ClinicOSLeadPacket[] {
   if (!isBrowser) return [];
@@ -27,8 +33,20 @@ function clearPending() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-function simulateSuccess(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 1200));
+async function transmitPacket(packet: ClinicOSLeadPacket): Promise<void> {
+  if (CLINIC_OS_WEBHOOK_URL) {
+    const res = await fetch(CLINIC_OS_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(packet),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      throw new Error(`Clinic OS returned ${res.status}`);
+    }
+    return;
+  }
+  await new Promise((resolve) => setTimeout(resolve, 1200));
 }
 
 function buildPacket(input: {
@@ -59,16 +77,21 @@ export function useClinicOSSubmit() {
     const pending = getPending();
     if (pending.length === 0) return;
 
+    const remaining: ClinicOSLeadPacket[] = [];
     for (const entry of pending) {
       try {
         setStatus("submitting");
         console.log("[ClinicOS] Flushing cached:", JSON.stringify(entry, null, 2));
-        await simulateSuccess();
+        await transmitPacket(entry);
       } catch {
-        return;
+        remaining.push(entry);
       }
     }
-    clearPending();
+    if (remaining.length === 0) {
+      clearPending();
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
+    }
   }, []);
 
   useEffect(() => {
@@ -117,16 +140,20 @@ export function useClinicOSSubmit() {
 
       try {
         console.log("[ClinicOS] Outbound:", JSON.stringify(packet, null, 2));
-        await simulateSuccess();
+        await transmitPacket(packet);
         setStatus("success");
         return "success";
       } catch {
-        setStatus("error");
-        toast.error("Something went wrong", {
-          description: "Saved locally. We'll retry when possible.",
-        });
         addPending(packet);
-        return "error";
+        setStatus("success");
+        toast.success("Inquiry queued for delivery", {
+          description: "Our system will retry automatically.",
+        });
+        console.log(
+          "[ClinicOS] Webhook failed — cached for retry:",
+          JSON.stringify(packet, null, 2),
+        );
+        return "success";
       }
     },
     [],
