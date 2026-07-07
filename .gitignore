@@ -34,3 +34,4 @@ dist-ssr
 # Third-party scaffolding metadata (not deployed, not tracked)
 .lovable/
 .vercel
+.env*
