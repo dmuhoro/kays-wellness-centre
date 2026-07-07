@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { Leaf, MapPin, Phone, Mail, Instagram, Facebook, Twitter } from "lucide-react";
+import { Leaf, MapPin, Phone, Mail, Instagram, Facebook, Twitter, Shield } from "lucide-react";
+import { specialties } from "@/data/specialties";
+import { ReachUs } from "./ReachUs";
 
 export function Footer() {
   return (
@@ -65,16 +67,23 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Specialties</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>Hormone & Endocrine</li>
-              <li>Digestive Health</li>
-              <li>Autoimmune Care</li>
-              <li>Lifestyle Diseases</li>
+              {specialties.slice(0, 6).map((s) => (
+                <li key={s.id}>
+                  <Link
+                    to="/services"
+                    className="hover:text-primary transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Shield className="size-3 text-accent shrink-0" />
+                    {s.title}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
           <div>
             <h4 className="font-semibold mb-4">Reach Us</h4>
-            <ul className="space-y-3 text-sm text-muted-foreground">
+            <ul className="space-y-3 text-sm text-muted-foreground mb-5">
               <li className="flex gap-2">
                 <MapPin className="size-4 mt-0.5 text-primary shrink-0" />
                 <span>Rubis Gikambura, Along Dagoretti Road, 1st Floor Room 9, Kenya.</span>
@@ -88,6 +97,7 @@ export function Footer() {
                 <a href="mailto:ceo@kayswellnesscentre.org">ceo@kayswellnesscentre.org</a>
               </li>
             </ul>
+            <ReachUs />
           </div>
         </div>
 

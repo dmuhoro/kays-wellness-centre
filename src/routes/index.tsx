@@ -4,6 +4,7 @@ import { WellnessTips } from "@/components/site/WellnessTips";
 import { Testimonials } from "@/components/site/Testimonials";
 import { BookingWidget } from "@/components/site/BookingWidget";
 import { AskQuestion } from "@/components/site/AskQuestion";
+import { Specialties } from "@/components/site/Specialties";
 import {
   Activity,
   Heart,
@@ -220,6 +221,26 @@ function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* PRECISION SPECIALTIES */}
+      <section className="py-20 sm:py-24 gradient-soft">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <p className="text-xs uppercase tracking-widest text-accent font-semibold mb-2">
+              Clinical Specialties
+            </p>
+            <h2 className="text-3xl sm:text-4xl font-bold">
+              Precision protocols, engineered for your biology
+            </h2>
+            <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
+              Every specialty is backed by rigorous diagnostic methodology and delivered under the
+              direct supervision of Dr. Jacqueline Mwanu. Click any card to explore the clinical
+              protocol.
+            </p>
+          </div>
+          <Specialties />
         </div>
       </section>
 
