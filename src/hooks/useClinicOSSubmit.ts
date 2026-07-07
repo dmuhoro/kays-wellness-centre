@@ -5,14 +5,22 @@ import { computeTriagePriority, sanitizeInput, collectTelemetry } from "./clinic
 
 const STORAGE_KEY = "kwc_pending_submissions";
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
-const CLINIC_OS_WEBHOOK_URL =
-  typeof import.meta !== "undefined" &&
-  typeof import.meta.env !== "undefined" &&
-  typeof (import.meta.env as Record<string, unknown>).NEXT_PUBLIC_CLINIC_OS_WEBHOOK_URL === "string"
-    ? ((import.meta.env as Record<string, unknown>).NEXT_PUBLIC_CLINIC_OS_WEBHOOK_URL as string)
-    : undefined;
 
-function getPending(): ClinicOSLeadPacket[] {
+function readEnv(name: string): string | undefined {
+  if (
+    typeof import.meta !== "undefined" &&
+    typeof import.meta.env !== "undefined" &&
+    typeof (import.meta.env as Record<string, unknown>)[name] === "string"
+  ) {
+    return (import.meta.env as Record<string, unknown>)[name] as string;
+  }
+  return undefined;
+}
+
+const CLINIC_OS_WEBHOOK_URL = readEnv("NEXT_PUBLIC_CLINIC_OS_WEBHOOK_URL");
+const CLINIC_OS_QUERY_URL = readEnv("NEXT_PUBLIC_CLINIC_OS_QUERY_URL");
+
+export function getPending(): ClinicOSLeadPacket[] {
   if (!isBrowser) return [];
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
@@ -32,6 +40,8 @@ function clearPending() {
   if (!isBrowser) return;
   localStorage.removeItem(STORAGE_KEY);
 }
+
+export { STORAGE_KEY, CLINIC_OS_QUERY_URL };
 
 async function transmitPacket(packet: ClinicOSLeadPacket): Promise<void> {
   if (CLINIC_OS_WEBHOOK_URL) {

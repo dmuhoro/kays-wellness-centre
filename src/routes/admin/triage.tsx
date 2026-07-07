@@ -13,22 +13,14 @@ import {
   FileText,
   Scale,
   Inbox,
+  AlertCircle,
 } from "lucide-react";
 import type { ClinicOSLeadPacket, TriagePriority } from "@/hooks/clinic-os-types";
+import { getPending, STORAGE_KEY, CLINIC_OS_QUERY_URL } from "@/hooks/useClinicOSSubmit";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
-const STORAGE_KEY = "kwc_pending_submissions";
 const AUTH_KEY = "kwc_admin_auth";
 const PASSCODE = "0726";
-
-function getPending(): ClinicOSLeadPacket[] {
-  if (!isBrowser) return [];
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
 
 function isAuthenticated(): boolean {
   if (!isBrowser) return false;
@@ -441,24 +433,58 @@ function QueueTable({ leads, online }: { leads: ClinicOSLeadPacket[]; online: bo
 function TriageDashboard() {
   const online = useOnlineStatus();
   const [leads, setLeads] = useState<ClinicOSLeadPacket[]>([]);
-  const [dataSource, setDataSource] = useState<"live" | "demo" | "pending">("pending");
+  const [dataSource, setDataSource] = useState<"live" | "demo" | "pending" | "error">("pending");
+  const [queryError, setQueryError] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
-    const pending = getPending();
-    if (pending.length > 0) {
-      setLeads(pending);
-      setDataSource("pending");
-      return;
+    let cancelled = false;
+
+    async function load() {
+      if (CLINIC_OS_QUERY_URL) {
+        try {
+          const res = await fetch(CLINIC_OS_QUERY_URL, {
+            signal: AbortSignal.timeout(8_000),
+          });
+          if (!res.ok) throw new Error(`Query returned ${res.status}`);
+          const body = (await res.json()) as ClinicOSLeadPacket[];
+          if (!cancelled) {
+            setLeads(Array.isArray(body) ? body : []);
+            setDataSource("live");
+            setQueryError(false);
+          }
+          return;
+        } catch {
+          if (!cancelled) setQueryError(true);
+        }
+      }
+
+      const pending = getPending();
+      if (pending.length > 0) {
+        if (!cancelled) {
+          setLeads(pending);
+          setDataSource("pending");
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setLeads(demoLeads);
+        setDataSource("demo");
+      }
     }
-    setLeads(demoLeads);
-    setDataSource("demo");
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [refreshKey]);
 
   const pendingCount = getPending().length;
-  const showDemoBanner = dataSource === "demo";
+  const showDemoBanner = dataSource === "demo" && !queryError;
+  const showLiveBanner = dataSource === "live";
 
   return (
     <div className="min-h-screen bg-background">
@@ -492,17 +518,47 @@ function TriageDashboard() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        {queryError && (
+          <div className="mb-6 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 flex items-center gap-3">
+            <AlertCircle className="size-5 text-red-500 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-red-700">Cloud Query Failed</p>
+              <p className="text-xs text-red-600/80 mt-0.5">
+                Could not reach the Clinic OS data endpoint. Displaying cached or sample data.
+              </p>
+            </div>
+            <button
+              onClick={refresh}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 text-xs font-semibold hover:bg-red-500/20 transition-colors"
+            >
+              <RefreshCw className="size-3" /> Retry
+            </button>
+          </div>
+        )}
+
+        {showLiveBanner && (
+          <div className="mb-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 flex items-center gap-3">
+            <Activity className="size-5 text-emerald-500 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-emerald-700">Live Cloud Feed Active</p>
+              <p className="text-xs text-emerald-600/80 mt-0.5">
+                Displaying real-time lead data from the Clinic OS cloud registry.
+              </p>
+            </div>
+          </div>
+        )}
+
         {showDemoBanner && (
           <div className="mb-6 rounded-2xl bg-amber-400/10 border border-amber-400/20 p-4 flex items-center gap-3">
             <Clock className="size-5 text-amber-500 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-amber-700">Demo Mode — No Webhook Active</p>
+              <p className="text-sm font-semibold text-amber-700">Demo Mode — No Endpoint Active</p>
               <p className="text-xs text-amber-600/80 mt-0.5">
                 Displaying sample leads for presentation. Set{" "}
                 <code className="bg-amber-400/20 px-1 rounded text-[11px]">
-                  NEXT_PUBLIC_CLINIC_OS_WEBHOOK_URL
+                  NEXT_PUBLIC_CLINIC_OS_QUERY_URL
                 </code>{" "}
-                to activate live ingestion.
+                to activate live cloud ingestion.
               </p>
             </div>
           </div>
