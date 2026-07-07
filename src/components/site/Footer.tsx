@@ -13,15 +13,23 @@ export function Footer() {
               </div>
               <div>
                 <div className="font-display font-bold">Kay's Wellness</div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Centre</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Centre
+                </div>
               </div>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Led by Dr. Jacqueline Mwanu, MD, MBChB, MPH, IHDiP — a Public Health Physician & Functional/Integrative Medicine Specialist shifting the culture of healthcare across Africa through root-cause, whole-person medicine.
+              Led by Dr. Jacqueline Mwanu, MD, MBChB, MPH, IHDiP — a Public Health Physician &
+              Functional/Integrative Medicine Specialist shifting the culture of healthcare across
+              Africa through root-cause, whole-person medicine.
             </p>
             <div className="flex gap-2 mt-5">
               {[Instagram, Facebook, Twitter].map((Icon, i) => (
-                <a key={i} href="#" className="size-9 rounded-lg glass flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors">
+                <a
+                  key={i}
+                  href="#"
+                  className="size-9 rounded-lg glass flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                >
                   <Icon className="size-4" />
                 </a>
               ))}
@@ -31,10 +39,26 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Explore</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/our-story" className="hover:text-primary">Our Story</Link></li>
-              <li><Link to="/services" className="hover:text-primary">Services</Link></li>
-              <li><Link to="/resources" className="hover:text-primary">Resources</Link></li>
-              <li><Link to="/contact" className="hover:text-primary">Book a Visit</Link></li>
+              <li>
+                <Link to="/our-story" className="hover:text-primary">
+                  Our Story
+                </Link>
+              </li>
+              <li>
+                <Link to="/services" className="hover:text-primary">
+                  Services
+                </Link>
+              </li>
+              <li>
+                <Link to="/resources" className="hover:text-primary">
+                  Resources
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="hover:text-primary">
+                  Book a Visit
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -51,9 +75,18 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Reach Us</h4>
             <ul className="space-y-3 text-sm text-muted-foreground">
-              <li className="flex gap-2"><MapPin className="size-4 mt-0.5 text-primary shrink-0" /><span>Rubis Gikambura, Along Dagoretti Road, 1st Floor Room 9, Kenya.</span></li>
-              <li className="flex gap-2"><Phone className="size-4 mt-0.5 text-primary shrink-0" /><a href="tel:+254726295529">+254 726 295 529</a></li>
-              <li className="flex gap-2"><Mail className="size-4 mt-0.5 text-primary shrink-0" /><a href="mailto:ceo@kayswellnesscentre.org">ceo@kayswellnesscentre.org</a></li>
+              <li className="flex gap-2">
+                <MapPin className="size-4 mt-0.5 text-primary shrink-0" />
+                <span>Rubis Gikambura, Along Dagoretti Road, 1st Floor Room 9, Kenya.</span>
+              </li>
+              <li className="flex gap-2">
+                <Phone className="size-4 mt-0.5 text-primary shrink-0" />
+                <a href="tel:+254726295529">+254 726 295 529</a>
+              </li>
+              <li className="flex gap-2">
+                <Mail className="size-4 mt-0.5 text-primary shrink-0" />
+                <a href="mailto:ceo@kayswellnesscentre.org">ceo@kayswellnesscentre.org</a>
+              </li>
             </ul>
           </div>
         </div>

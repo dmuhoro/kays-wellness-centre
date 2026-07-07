@@ -24,7 +24,10 @@ function NotFoundComponent() {
           The page you're looking for doesn't exist or has been moved.
         </p>
         <div className="mt-6">
-          <Link to="/" className="inline-flex items-center justify-center rounded-xl gradient-hero px-5 py-3 text-sm font-semibold text-primary-foreground shadow-elegant">
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center rounded-xl gradient-hero px-5 py-3 text-sm font-semibold text-primary-foreground shadow-elegant"
+          >
             Go home
           </Link>
         </div>
@@ -40,10 +43,22 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold">This page didn't load</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Something went wrong. Try again or head home.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Something went wrong. Try again or head home.
+        </p>
         <div className="mt-6 flex justify-center gap-2">
-          <button onClick={() => { router.invalidate(); reset(); }} className="rounded-xl gradient-hero px-5 py-3 text-sm font-semibold text-primary-foreground">Try again</button>
-          <a href="/" className="rounded-xl glass px-5 py-3 text-sm font-semibold">Go home</a>
+          <button
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
+            className="rounded-xl gradient-hero px-5 py-3 text-sm font-semibold text-primary-foreground"
+          >
+            Try again
+          </button>
+          <a href="/" className="rounded-xl glass px-5 py-3 text-sm font-semibold">
+            Go home
+          </a>
         </div>
       </div>
     </div>
@@ -56,21 +71,47 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Kay's Wellness Centre — Premium Functional Medicine | Dr. Jacqueline Mwanu, MD" },
-      { name: "description", content: "Bespoke BHRT, IV nutritional therapy, chronic disease management, and metabolic optimisation for executives. Precision functional medicine in Nairobi, Kenya." },
-      { property: "og:title", content: "Kay's Wellness Centre — Premium Functional Medicine, Nairobi" },
-      { property: "og:description", content: "Bespoke BHRT, IV nutritional therapy, chronic disease management, and metabolic optimisation for executives. Precision functional medicine in Nairobi, Kenya." },
+      {
+        name: "description",
+        content:
+          "Bespoke BHRT, IV nutritional therapy, chronic disease management, and metabolic optimisation for executives. Precision functional medicine in Nairobi, Kenya.",
+      },
+      {
+        property: "og:title",
+        content: "Kay's Wellness Centre — Premium Functional Medicine, Nairobi",
+      },
+      {
+        property: "og:description",
+        content:
+          "Bespoke BHRT, IV nutritional therapy, chronic disease management, and metabolic optimisation for executives. Precision functional medicine in Nairobi, Kenya.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:title", content: "Kay's Wellness Centre — Premium Functional Medicine" },
-      { name: "twitter:description", content: "Bespoke BHRT, IV nutritional therapy, chronic disease management, and metabolic optimisation for executives. Precision functional medicine in Nairobi." },
-      { property: "og:image", content: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1200&q=80" },
-      { name: "twitter:image", content: "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1200&q=80" },
+      {
+        name: "twitter:description",
+        content:
+          "Bespoke BHRT, IV nutritional therapy, chronic disease management, and metabolic optimisation for executives. Precision functional medicine in Nairobi.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1200&q=80",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1200&q=80",
+      },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -82,7 +123,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+      </head>
       <body>
         {children}
         <Scripts />

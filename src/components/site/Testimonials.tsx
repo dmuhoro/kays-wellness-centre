@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Quote, Star, TrendingUp } from "lucide-react";
 
-const categories = ["All", "Digestive Restoration", "Reproductive Health", "Maternal Wellness", "Autoimmune"];
+const categories = [
+  "All",
+  "Digestive Restoration",
+  "Reproductive Health",
+  "Maternal Wellness",
+  "Autoimmune",
+];
 
 type Story = {
   name: string;
@@ -64,9 +70,13 @@ export function Testimonials() {
       <div className="absolute inset-0 pattern-mudcloth opacity-40 pointer-events-none" />
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <p className="text-xs uppercase tracking-widest text-accent font-semibold mb-2">Clinical Impact Stories</p>
+          <p className="text-xs uppercase tracking-widest text-accent font-semibold mb-2">
+            Clinical Impact Stories
+          </p>
           <h2 className="text-3xl sm:text-4xl font-bold">Real protocols. Real recoveries.</h2>
-          <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Verified patient outcomes from root-cause treatment plans.</p>
+          <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
+            Verified patient outcomes from root-cause treatment plans.
+          </p>
         </div>
 
         <div className="flex flex-wrap justify-center gap-2 mb-10">
@@ -83,14 +93,24 @@ export function Testimonials() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((r, i) => (
-            <article key={i} className="glass rounded-2xl p-7 card-lift animate-fade-up flex flex-col" style={{ animationDelay: `${i * 80}ms` }}>
+            <article
+              key={i}
+              className="glass rounded-2xl p-7 card-lift animate-fade-up flex flex-col"
+              style={{ animationDelay: `${i * 80}ms` }}
+            >
               <Quote className="size-8 text-accent/40 mb-3" />
-              <div className="text-xs uppercase tracking-wider text-primary font-semibold mb-1">{r.category}</div>
-              <div className="text-sm text-muted-foreground mb-4 border-l-2 border-accent/50 pl-3">{r.condition}</div>
+              <div className="text-xs uppercase tracking-wider text-primary font-semibold mb-1">
+                {r.category}
+              </div>
+              <div className="text-sm text-muted-foreground mb-4 border-l-2 border-accent/50 pl-3">
+                {r.condition}
+              </div>
               <p className="text-foreground/90 leading-relaxed mb-5 italic">"{r.text}"</p>
               <div className="mt-auto rounded-xl border-warm bg-secondary/40 p-3 mb-4 flex items-start gap-2">
                 <TrendingUp className="size-4 text-accent mt-0.5 shrink-0" />
-                <div className="text-xs font-semibold text-foreground leading-snug">{r.outcome}</div>
+                <div className="text-xs font-semibold text-foreground leading-snug">
+                  {r.outcome}
+                </div>
               </div>
               <div className="flex items-center justify-between pt-4 border-t border-border/60">
                 <div className="font-semibold text-sm">{r.name}</div>

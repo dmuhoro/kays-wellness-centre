@@ -51,7 +51,9 @@ export function HeroCarousel() {
       ))}
       <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/15 backdrop-blur mb-6 border border-white/20">
         <Sparkles className="size-4 text-accent" />
-        <span className="text-xs font-semibold tracking-wide text-white uppercase">{slides[i].tag}</span>
+        <span className="text-xs font-semibold tracking-wide text-white uppercase">
+          {slides[i].tag}
+        </span>
       </div>
       <div className="relative min-h-[230px] sm:min-h-[260px]">
         {slides.map((s, idx) => (
@@ -68,10 +70,16 @@ export function HeroCarousel() {
       </div>
 
       <div className="mt-8 flex flex-wrap items-center gap-3">
-        <Link to="/contact" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl gradient-hero text-primary-foreground font-semibold shadow-elegant hover:shadow-glow transition-all hover:scale-[1.02]">
+        <Link
+          to="/contact"
+          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl gradient-hero text-primary-foreground font-semibold shadow-elegant hover:shadow-glow transition-all hover:scale-[1.02]"
+        >
           Book a Consultation <ArrowRight className="size-4" />
         </Link>
-        <Link to="/our-story" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl glass font-semibold text-white hover:bg-white/20 transition-colors">
+        <Link
+          to="/our-story"
+          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl glass font-semibold text-white hover:bg-white/20 transition-colors"
+        >
           Meet Dr. Jacqueline Mwanu
         </Link>
       </div>

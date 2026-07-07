@@ -28,23 +28,25 @@ export function Navbar() {
     <header
       className={cn(
         "fixed top-0 inset-x-0 z-50 transition-all duration-500",
-        scrolled ? "py-2" : "py-4"
+        scrolled ? "py-2" : "py-4",
       )}
     >
-      <div className={cn(
-        "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 transition-all",
-      )}>
-        <div className={cn(
-          "flex items-center justify-between rounded-2xl px-4 sm:px-6 py-3 transition-all duration-500",
-          scrolled ? "glass shadow-card" : "bg-transparent"
-        )}>
+      <div className={cn("mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 transition-all")}>
+        <div
+          className={cn(
+            "flex items-center justify-between rounded-2xl px-4 sm:px-6 py-3 transition-all duration-500",
+            scrolled ? "glass shadow-card" : "bg-transparent",
+          )}
+        >
           <Link to="/" className="flex items-center gap-2 group">
             <div className="size-9 rounded-xl gradient-hero flex items-center justify-center shadow-glow">
               <Leaf className="size-5 text-primary-foreground" />
             </div>
             <div className="leading-tight">
               <div className="font-display font-bold text-foreground">Kay's Wellness</div>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Centre</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Centre
+              </div>
             </div>
           </Link>
 
@@ -54,7 +56,9 @@ export function Navbar() {
                 key={l.to}
                 to={l.to}
                 className="px-4 py-2 text-sm font-medium text-foreground/80 hover:text-primary rounded-lg hover:bg-secondary/60 transition-colors"
-                activeProps={{ className: "px-4 py-2 text-sm font-semibold text-primary rounded-lg bg-secondary" }}
+                activeProps={{
+                  className: "px-4 py-2 text-sm font-semibold text-primary rounded-lg bg-secondary",
+                }}
                 activeOptions={{ exact: l.to === "/" }}
               >
                 {l.label}
