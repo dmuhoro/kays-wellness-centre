@@ -32,10 +32,10 @@ export function computeTriagePriority(serviceId: string): TriagePriority {
 }
 
 export function sanitizeInput(value: string): string {
-  const noTags = value.replace(/<[^>]*>/g, "");
-  const noControl = noTags.replace(/\0/g, "").replace(/\x08/g, "").replace(/\x0B/g, "").replace(/\x1A/g, "");
-  const noQuotes = noControl.replace(/[<>"'`]/g, "");
-  return noQuotes.trim();
+  return value
+    .replace(/<[^>]*>/g, "")
+    .replace(/[<>&"'`]/g, "")
+    .trim();
 }
 
 export function collectTelemetry() {
