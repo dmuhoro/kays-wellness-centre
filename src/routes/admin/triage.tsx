@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, Suspense } from "react";
 import {
   Shield,
   Users,
@@ -14,9 +14,15 @@ import {
   Scale,
   Inbox,
   AlertCircle,
+  Trash2,
+  ChevronDown,
+  Check,
 } from "lucide-react";
-import type { ClinicOSLeadPacket, TriagePriority } from "@/hooks/clinic-os-types";
-import { getPending, STORAGE_KEY, CLINIC_OS_QUERY_URL } from "@/hooks/useClinicOSSubmit";
+import type { TriagePriority } from "@/hooks/clinic-os-types";
+import { getPending } from "@/hooks/useClinicOSSubmit";
+import type { LeadRow } from "@/lib/api/leads.server";
+import { useLeads, useUpdateLead, useDeleteLead } from "@/hooks/useLeads";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
 const AUTH_KEY = "kwc_admin_auth";
@@ -57,103 +63,9 @@ const serviceLabels: Record<string, string> = {
   physio: "Physiotherapy & Osteopathy",
 };
 
-const demoLeads: ClinicOSLeadPacket[] = [
-  {
-    Client_Lead_Source: "Online_Front_Door",
-    Payload_Timestamp: new Date(Date.now() - 3_600_000).toISOString(),
-    capture_channel: "Web_Premium_Front_Door",
-    formData: {
-      name: "Grace Wanjiku",
-      email: "grace.w@example.com",
-      service: "bhrh",
-      channel: "in-person",
-    },
-    triage_priority: "high",
-    device_telemetry: {
-      connectionType: "4g",
-      onlineStatus: true,
-      localTimestamp: "",
-      timezone: "Africa/Nairobi",
-      userAgent: "",
-    },
-  },
-  {
-    Client_Lead_Source: "Online_Front_Door",
-    Payload_Timestamp: new Date(Date.now() - 7_200_000).toISOString(),
-    capture_channel: "Web_Premium_Front_Door",
-    formData: {
-      name: "James Ochieng",
-      email: "james.o@example.com",
-      service: "metabolic",
-      channel: "telehealth",
-    },
-    triage_priority: "medium",
-    device_telemetry: {
-      connectionType: "wifi",
-      onlineStatus: true,
-      localTimestamp: "",
-      timezone: "Africa/Nairobi",
-      userAgent: "",
-    },
-  },
-  {
-    Client_Lead_Source: "Online_Front_Door",
-    Payload_Timestamp: new Date(Date.now() - 86_400_000).toISOString(),
-    capture_channel: "Web_Premium_Front_Door",
-    formData: {
-      name: "Dr. Sarah Kimani",
-      email: "s.kimani@hospital.ke",
-      service: "autoimmune",
-      channel: "in-person",
-    },
-    triage_priority: "high",
-    device_telemetry: {
-      connectionType: "4g",
-      onlineStatus: true,
-      localTimestamp: "",
-      timezone: "Africa/Nairobi",
-      userAgent: "",
-    },
-  },
-  {
-    Client_Lead_Source: "Online_Front_Door",
-    Payload_Timestamp: new Date(Date.now() - 172_800_000).toISOString(),
-    capture_channel: "Web_Premium_Front_Door",
-    formData: {
-      name: "Michael Njoroge",
-      email: "m.njoroge@example.com",
-      service: "longevity",
-      channel: "in-person",
-    },
-    triage_priority: "medium",
-    device_telemetry: {
-      connectionType: "wifi",
-      onlineStatus: true,
-      localTimestamp: "",
-      timezone: "Africa/Nairobi",
-      userAgent: "",
-    },
-  },
-  {
-    Client_Lead_Source: "Online_Front_Door",
-    Payload_Timestamp: new Date(Date.now() - 259_200_000).toISOString(),
-    capture_channel: "Web_Premium_Front_Door",
-    formData: {
-      name: "Faith Akinyi",
-      email: "faith.a@example.com",
-      service: "screening",
-      channel: "telehealth",
-    },
-    triage_priority: "low",
-    device_telemetry: {
-      connectionType: "3g",
-      onlineStatus: true,
-      localTimestamp: "",
-      timezone: "Africa/Nairobi",
-      userAgent: "",
-    },
-  },
-];
+const statusOptions = ["pending", "contacted", "scheduled", "converted", "closed"];
+
+const priorityOptions: TriagePriority[] = ["high", "medium", "low"];
 
 const priorityDot: Record<TriagePriority, string> = {
   high: "bg-red-500",
@@ -179,17 +91,6 @@ function formatDate(iso: string): string {
 
 function useOnlineStatus() {
   const [online, setOnline] = useState(isBrowser ? navigator.onLine : true);
-  useEffect(() => {
-    if (!isBrowser) return;
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
-    return () => {
-      window.removeEventListener("online", on);
-      window.removeEventListener("offline", off);
-    };
-  }, []);
   return online;
 }
 
@@ -309,10 +210,10 @@ function SyncIndicator({ online }: { online: boolean }) {
   );
 }
 
-function MetricsBar({ leads }: { leads: ClinicOSLeadPacket[] }) {
-  const high = leads.filter((l) => l.triage_priority === "high").length;
-  const medium = leads.filter((l) => l.triage_priority === "medium").length;
-  const low = leads.filter((l) => l.triage_priority === "low").length;
+function MetricsBar({ leads }: { leads: LeadRow[] }) {
+  const high = leads.filter((l) => l.priority === "high").length;
+  const medium = leads.filter((l) => l.priority === "medium").length;
+  const low = leads.filter((l) => l.priority === "low").length;
 
   const metrics = [
     { label: "Total Leads", value: leads.length, icon: Users, color: "text-primary" },
@@ -336,8 +237,57 @@ function MetricsBar({ leads }: { leads: ClinicOSLeadPacket[] }) {
   );
 }
 
-function QueueTable({ leads, online }: { leads: ClinicOSLeadPacket[]; online: boolean }) {
-  const isSynced = online && leads.length > 0;
+function InlineSelect<T extends string>({
+  value,
+  options,
+  labels,
+  onChange,
+}: {
+  value: T;
+  options: T[];
+  labels: Record<string, string>;
+  onChange: (v: T) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold border border-border hover:bg-secondary/50 transition-colors"
+      >
+        {labels[value] || value}
+        <ChevronDown className="size-3" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-20 min-w-[120px] rounded-xl border border-border bg-popover shadow-md overflow-hidden">
+            {options.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => {
+                  onChange(opt);
+                  setOpen(false);
+                }}
+                className={`flex items-center gap-2 w-full px-3 py-2 text-xs text-left hover:bg-secondary/50 transition-colors ${
+                  opt === value ? "font-semibold" : ""
+                }`}
+              >
+                {opt === value && <Check className="size-3" />}
+                <span className={opt === value ? "" : "ml-5"}>{labels[opt] || opt}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function QueueTable({ leads }: { leads: LeadRow[] }) {
+  const updateMutation = useUpdateLead();
+  const deleteMutation = useDeleteLead();
 
   return (
     <div className="glass rounded-2xl border-warm overflow-hidden">
@@ -347,15 +297,6 @@ function QueueTable({ leads, online }: { leads: ClinicOSLeadPacket[]; online: bo
           <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
             {leads.length} {leads.length === 1 ? "entry" : "entries"}
           </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <SyncIndicator online={online} />
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span
-              className={`size-1.5 rounded-full ${isSynced ? "bg-emerald-500" : "bg-amber-400"}`}
-            />
-            {isSynced ? "Synced" : "Pending"}
-          </div>
         </div>
       </div>
 
@@ -377,48 +318,59 @@ function QueueTable({ leads, online }: { leads: ClinicOSLeadPacket[]; online: bo
                 <th className="p-4 font-medium hidden md:table-cell">Service</th>
                 <th className="p-4 font-medium">Priority</th>
                 <th className="p-4 font-medium hidden lg:table-cell">Received</th>
-                <th className="p-4 pr-5 font-medium">Status</th>
+                <th className="p-4 font-medium">Status</th>
+                <th className="p-4 pr-5 font-medium w-12" />
               </tr>
             </thead>
             <tbody>
-              {leads.map((lead, i) => (
+              {leads.map((lead) => (
                 <tr
-                  key={i}
+                  key={lead.id}
                   className="border-b border-border/50 last:border-0 hover:bg-secondary/30 transition-colors"
                 >
                   <td className="p-4 pl-5">
-                    <div className="font-medium">{lead.formData.name}</div>
+                    <div className="font-medium">{lead.name}</div>
                   </td>
                   <td className="p-4 text-muted-foreground hidden sm:table-cell">
-                    {lead.formData.email}
+                    {lead.email}
+                    {lead.phone && (
+                      <span className="block text-[11px] opacity-70">{lead.phone}</span>
+                    )}
                   </td>
                   <td className="p-4 text-muted-foreground hidden md:table-cell max-w-[200px] truncate">
-                    {serviceLabels[lead.formData.service] || lead.formData.service}
+                    {serviceLabels[lead.service] || lead.service}
                   </td>
                   <td className="p-4">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        lead.triage_priority === "high"
-                          ? "bg-red-500/10 text-red-600 border border-red-500/20"
-                          : lead.triage_priority === "medium"
-                            ? "bg-amber-400/10 text-amber-600 border border-amber-400/20"
-                            : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                      }`}
-                    >
-                      <span
-                        className={`size-1.5 rounded-full ${priorityDot[lead.triage_priority]}`}
-                      />
-                      {priorityLabel[lead.triage_priority]}
-                    </span>
+                    <InlineSelect
+                      value={lead.priority as TriagePriority}
+                      options={priorityOptions}
+                      labels={priorityLabel}
+                      onChange={(v) => updateMutation.mutate({ id: lead.id, priority: v })}
+                    />
                   </td>
                   <td className="p-4 text-muted-foreground hidden lg:table-cell text-xs">
-                    {formatDate(lead.Payload_Timestamp)}
+                    {formatDate(lead.created_at)}
+                  </td>
+                  <td className="p-4">
+                    <InlineSelect
+                      value={lead.status}
+                      options={statusOptions}
+                      labels={Object.fromEntries(statusOptions.map((s) => [s, s.charAt(0).toUpperCase() + s.slice(1)]))}
+                      onChange={(v) => updateMutation.mutate({ id: lead.id, status: v })}
+                    />
                   </td>
                   <td className="p-4 pr-5">
-                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                      <span className="size-1.5 rounded-full bg-emerald-500" />
-                      Captured
-                    </span>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete lead for ${lead.name}?`)) {
+                          deleteMutation.mutate(lead.id);
+                        }
+                      }}
+                      className="size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                      title="Delete lead"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -431,60 +383,13 @@ function QueueTable({ leads, online }: { leads: ClinicOSLeadPacket[]; online: bo
 }
 
 function TriageDashboard() {
+  const { data: leads, isLoading, error, isFetching } = useLeads();
   const online = useOnlineStatus();
-  const [leads, setLeads] = useState<ClinicOSLeadPacket[]>([]);
-  const [dataSource, setDataSource] = useState<"live" | "demo" | "pending" | "error">("pending");
-  const [queryError, setQueryError] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      if (CLINIC_OS_QUERY_URL) {
-        try {
-          const res = await fetch(CLINIC_OS_QUERY_URL, {
-            signal: AbortSignal.timeout(8_000),
-          });
-          if (!res.ok) throw new Error(`Query returned ${res.status}`);
-          const body = (await res.json()) as ClinicOSLeadPacket[];
-          if (!cancelled) {
-            setLeads(Array.isArray(body) ? body : []);
-            setDataSource("live");
-            setQueryError(false);
-          }
-          return;
-        } catch {
-          if (!cancelled) setQueryError(true);
-        }
-      }
-
-      const pending = getPending();
-      if (pending.length > 0) {
-        if (!cancelled) {
-          setLeads(pending);
-          setDataSource("pending");
-        }
-        return;
-      }
-
-      if (!cancelled) {
-        setLeads(demoLeads);
-        setDataSource("demo");
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshKey]);
-
   const pendingCount = getPending().length;
-  const showDemoBanner = dataSource === "demo" && !queryError;
-  const showLiveBanner = dataSource === "live";
+
+  const dataAvailable = leads && leads.length > 0;
+  const showDemoBanner = !dataAvailable && !isLoading && !error;
+  const showLiveBanner = dataAvailable && !error;
 
   return (
     <div className="min-h-screen bg-background">
@@ -506,33 +411,22 @@ function TriageDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <SyncIndicator online={online} />
-            <button
-              onClick={refresh}
-              className="size-8 rounded-lg glass flex items-center justify-center hover:bg-secondary transition-colors"
-              title="Refresh queue"
-            >
-              <RefreshCw className="size-4 text-muted-foreground" />
-            </button>
+            {isFetching && <RefreshCw className="size-4 text-muted-foreground animate-spin" />}
           </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-        {queryError && (
+        {error && (
           <div className="mb-6 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 flex items-center gap-3">
             <AlertCircle className="size-5 text-red-500 shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-red-700">Cloud Query Failed</p>
+              <p className="text-sm font-semibold text-red-700">Query Failed</p>
               <p className="text-xs text-red-600/80 mt-0.5">
-                Could not reach the Clinic OS data endpoint. Displaying cached or sample data.
+                Could not reach the database. Displaying cached or sample data.
               </p>
             </div>
-            <button
-              onClick={refresh}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 text-xs font-semibold hover:bg-red-500/20 transition-colors"
-            >
-              <RefreshCw className="size-3" /> Retry
-            </button>
+            <RefreshCw className="size-4 text-red-500 animate-spin" />
           </div>
         )}
 
@@ -540,9 +434,9 @@ function TriageDashboard() {
           <div className="mb-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 flex items-center gap-3">
             <Activity className="size-5 text-emerald-500 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-emerald-700">Live Cloud Feed Active</p>
+              <p className="text-sm font-semibold text-emerald-700">Live Database Active</p>
               <p className="text-xs text-emerald-600/80 mt-0.5">
-                Displaying real-time lead data from the Clinic OS cloud registry.
+                Displaying {leads!.length} lead{leads!.length !== 1 ? "s" : ""} from PostgreSQL.
               </p>
             </div>
           </div>
@@ -552,13 +446,10 @@ function TriageDashboard() {
           <div className="mb-6 rounded-2xl bg-amber-400/10 border border-amber-400/20 p-4 flex items-center gap-3">
             <Clock className="size-5 text-amber-500 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-amber-700">Demo Mode — No Endpoint Active</p>
+              <p className="text-sm font-semibold text-amber-700">No Database Connection</p>
               <p className="text-xs text-amber-600/80 mt-0.5">
-                Displaying sample leads for presentation. Set{" "}
-                <code className="bg-amber-400/20 px-1 rounded text-[11px]">
-                  NEXT_PUBLIC_CLINIC_OS_QUERY_URL
-                </code>{" "}
-                to activate live cloud ingestion.
+                Set <code className="bg-amber-400/20 px-1 rounded text-[11px]">DATABASE_URL</code>{" "}
+                to activate live data. Currently showing demo mode.
               </p>
             </div>
           </div>
@@ -571,14 +462,18 @@ function TriageDashboard() {
               <p className="text-sm font-semibold text-sky-700">Offline Queue Active</p>
               <p className="text-xs text-sky-600/80 mt-0.5">
                 {pendingCount} {pendingCount === 1 ? "submission" : "submissions"} pending
-                transmission — will deliver automatically when connection is restored.
+                transmission.
               </p>
             </div>
           </div>
         )}
 
-        <MetricsBar leads={leads} />
-        <QueueTable leads={leads} online={online} />
+        <ErrorBoundary>
+          <Suspense fallback={<div className="h-32 animate-pulse rounded-2xl bg-secondary/30" />}>
+            <MetricsBar leads={leads ?? []} />
+            <QueueTable leads={leads ?? []} />
+          </Suspense>
+        </ErrorBoundary>
 
         <div className="mt-8 flex items-center justify-between text-xs text-muted-foreground border-t border-border pt-6">
           <div className="flex items-center gap-4">
@@ -609,5 +504,9 @@ function TriagePage() {
     return <PasscodeGate onUnlock={() => setAuthed(true)} />;
   }
 
-  return <TriageDashboard />;
+  return (
+    <ErrorBoundary>
+      <TriageDashboard />
+    </ErrorBoundary>
+  );
 }

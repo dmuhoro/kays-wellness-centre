@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import type { ClinicOSLeadPacket, SubmitStatus } from "./clinic-os-types";
 import { computeTriagePriority, sanitizeInput, collectTelemetry } from "./clinic-os-types";
+import { submitLead, submitLeadViaWebhook } from "@/lib/api/leads.server";
 
 const STORAGE_KEY = "kwc_pending_submissions";
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
@@ -18,7 +19,6 @@ function readEnv(name: string): string | undefined {
 }
 
 const CLINIC_OS_WEBHOOK_URL = readEnv("NEXT_PUBLIC_CLINIC_OS_WEBHOOK_URL");
-const CLINIC_OS_QUERY_URL = readEnv("NEXT_PUBLIC_CLINIC_OS_QUERY_URL");
 
 export function getPending(): ClinicOSLeadPacket[] {
   if (!isBrowser) return [];
@@ -41,7 +41,7 @@ function clearPending() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-export { STORAGE_KEY, CLINIC_OS_QUERY_URL };
+export { STORAGE_KEY };
 
 async function transmitPacket(packet: ClinicOSLeadPacket): Promise<void> {
   if (CLINIC_OS_WEBHOOK_URL) {
@@ -56,7 +56,23 @@ async function transmitPacket(packet: ClinicOSLeadPacket): Promise<void> {
     }
     return;
   }
-  await new Promise((resolve) => setTimeout(resolve, 1200));
+
+  const result = await submitLead({
+    data: {
+      name: packet.formData.name,
+      phone: packet.formData.phone || "",
+      email: packet.formData.email,
+      service: packet.formData.service,
+      channel: packet.formData.channel || "",
+      priority: packet.triage_priority,
+      raw_payload: packet,
+    },
+  });
+
+  if (result.status === "db_unavailable") {
+    console.warn("[ClinicOS] DB unavailable — queueing for retry");
+    throw new Error("DB unavailable");
+  }
 }
 
 function buildPacket(input: {
@@ -149,8 +165,29 @@ export function useClinicOSSubmit() {
       }
 
       try {
-        console.log("[ClinicOS] Outbound:", JSON.stringify(packet, null, 2));
-        await transmitPacket(packet);
+        console.log("[ClinicOS] Outbound via server fn:", JSON.stringify(packet, null, 2));
+        const result = await submitLead({
+          data: {
+            name: packet.formData.name,
+            phone: packet.formData.phone || "",
+            email: packet.formData.email,
+            service: packet.formData.service,
+            channel: packet.formData.channel || "",
+            priority: packet.triage_priority,
+            raw_payload: packet,
+          },
+        });
+
+        if (result.status === "db_unavailable") {
+          addPending(packet);
+          setStatus("success");
+          toast.success("Inquiry queued for delivery", {
+            description: "Our system will retry automatically.",
+          });
+          console.log("[ClinicOS] DB unavailable — queued for retry");
+          return "success";
+        }
+
         setStatus("success");
         return "success";
       } catch {
@@ -160,7 +197,7 @@ export function useClinicOSSubmit() {
           description: "Our system will retry automatically.",
         });
         console.log(
-          "[ClinicOS] Webhook failed — cached for retry:",
+          "[ClinicOS] Server fn failed — cached for retry:",
           JSON.stringify(packet, null, 2),
         );
         return "success";
