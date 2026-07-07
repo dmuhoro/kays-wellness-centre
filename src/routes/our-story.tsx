@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Award, HeartHandshake, Sparkles, FlaskConical, ArrowRight, GraduationCap, Globe2, Stethoscope } from "lucide-react";
-const drJackie = "https://images.unsplash.com/photo-1594824813573-246434de83fb?auto=format&fit=crop&w=1000&q=80";
-const team1 = "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80";
-const team2 = "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=800&q=80";
-const team3 = "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=800&q=80";
+const drJackie = "https://images.unsplash.com/photo-1594824813573-246434e33963?auto=format&fit=crop&w=800&q=80";
+const team1 = "https://images.unsplash.com/photo-1517816743773-6e0fd518b4a6?auto=format&fit=crop&w=800&q=80";
+const team2 = "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=800&q=80";
+const team3 = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=800&q=80";
 
 export const Route = createFileRoute("/our-story")({
   head: () => ({

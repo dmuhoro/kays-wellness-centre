@@ -5,8 +5,8 @@ import { Testimonials } from "@/components/site/Testimonials";
 import { BookingWidget } from "@/components/site/BookingWidget";
 import { AskQuestion } from "@/components/site/AskQuestion";
 import { Activity, Heart, Brain, Leaf, ArrowRight, Shield, Microscope, HandHeart, Globe2, GraduationCap, Sparkles } from "lucide-react";
-const hero = "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=1600&q=80";
-const drJackie = "https://images.unsplash.com/photo-1594824813573-246434de83fb?auto=format&fit=crop&w=1000&q=80";
+const hero = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1920&q=80";
+const drJackie = "https://images.unsplash.com/photo-1594824813573-246434e33963?auto=format&fit=crop&w=800&q=80";
 
 export const Route = createFileRoute("/")({
   head: () => ({
