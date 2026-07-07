@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 
+interface NavigatorWithConnection extends Navigator {
+  connection?: { effectiveType: string };
+}
+
 type SubmissionPayload = {
   Client_Lead_Source: "Online_Front_Door";
   Payload_Timestamp: string;
@@ -48,7 +52,7 @@ function buildPayload(formData: Record<string, string>): SubmissionPayload {
       referrer: document.referrer || "direct",
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       screenResolution: `${window.screen.width}x${window.screen.height}`,
-      connectionType: (navigator as any).connection?.effectiveType || "unknown",
+      connectionType: (navigator as NavigatorWithConnection).connection?.effectiveType || "unknown",
     },
   };
 }
@@ -68,7 +72,6 @@ export function useClinicOSSubmit() {
     for (const entry of pending) {
       try {
         setStatus("submitting");
-        // eslint-disable-next-line no-console
         console.log(
           "[ClinicOS] Flushing cached submission:",
           JSON.stringify(buildPayload(entry), null, 2),
@@ -118,13 +121,11 @@ export function useClinicOSSubmit() {
       toast.success("Inquiry saved offline", {
         description: "We'll send it automatically when your connection returns.",
       });
-      // eslint-disable-next-line no-console
       console.log("[ClinicOS] Offline — submission cached:", JSON.stringify(payload, null, 2));
       return "success";
     }
 
     try {
-      // eslint-disable-next-line no-console
       console.log("[ClinicOS] Submission payload:", JSON.stringify(payload, null, 2));
 
       await simulateSuccess();
