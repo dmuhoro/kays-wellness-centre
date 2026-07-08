@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import type { ClinicOSLeadPacket, SubmitStatus } from "./clinic-os-types";
 import { computeTriagePriority, sanitizeInput, collectTelemetry } from "./clinic-os-types";
-import { submitLead, submitLeadViaWebhook } from "@/lib/api/leads.server";
+import { submitLead } from "@/lib/api/leads.server";
+import { LEADS_QUERY_KEY } from "./useLeads";
 
 const STORAGE_KEY = "kwc_pending_submissions";
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
@@ -98,6 +100,7 @@ function buildPacket(input: {
 export function useClinicOSSubmit() {
   const [status, setStatus] = useState<SubmitStatus>("idle");
   const onlineRef = useRef(isBrowser ? navigator.onLine : true);
+  const queryClient = useQueryClient();
 
   const flushQueue = useCallback(async () => {
     const pending = getPending();
@@ -115,10 +118,11 @@ export function useClinicOSSubmit() {
     }
     if (remaining.length === 0) {
       clearPending();
+      queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
     } else {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
     }
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -189,6 +193,7 @@ export function useClinicOSSubmit() {
         }
 
         setStatus("success");
+        queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
         return "success";
       } catch {
         addPending(packet);

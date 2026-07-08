@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense, memo } from "react";
 import {
   Shield,
   Users,
@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Check,
 } from "lucide-react";
+import { format } from "date-fns";
 import type { TriagePriority } from "@/hooks/clinic-os-types";
 import { getPending } from "@/hooks/useClinicOSSubmit";
 import type { LeadRow } from "@/lib/api/leads.server";
@@ -67,12 +68,6 @@ const statusOptions = ["pending", "contacted", "scheduled", "converted", "closed
 
 const priorityOptions: TriagePriority[] = ["high", "medium", "low"];
 
-const priorityDot: Record<TriagePriority, string> = {
-  high: "bg-red-500",
-  medium: "bg-amber-400",
-  low: "bg-emerald-500",
-};
-
 const priorityLabel: Record<TriagePriority, string> = {
   high: "High",
   medium: "Medium",
@@ -80,18 +75,7 @@ const priorityLabel: Record<TriagePriority, string> = {
 };
 
 function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-KE", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function useOnlineStatus() {
-  const [online, setOnline] = useState(isBrowser ? navigator.onLine : true);
-  return online;
+  return format(new Date(iso), "d MMM, HH:mm");
 }
 
 export const Route = createFileRoute("/admin/triage")({
@@ -210,7 +194,7 @@ function SyncIndicator({ online }: { online: boolean }) {
   );
 }
 
-function MetricsBar({ leads }: { leads: LeadRow[] }) {
+const MetricsBar = memo(function MetricsBar({ leads }: { leads: LeadRow[] }) {
   const high = leads.filter((l) => l.priority === "high").length;
   const medium = leads.filter((l) => l.priority === "medium").length;
   const low = leads.filter((l) => l.priority === "low").length;
@@ -235,9 +219,9 @@ function MetricsBar({ leads }: { leads: LeadRow[] }) {
       ))}
     </div>
   );
-}
+});
 
-function InlineSelect<T extends string>({
+const InlineSelect = memo(function InlineSelect<T extends string>({
   value,
   options,
   labels,
@@ -283,9 +267,9 @@ function InlineSelect<T extends string>({
       )}
     </div>
   );
-}
+});
 
-function QueueTable({ leads }: { leads: LeadRow[] }) {
+const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
   const updateMutation = useUpdateLead();
   const deleteMutation = useDeleteLead();
 
@@ -355,7 +339,12 @@ function QueueTable({ leads }: { leads: LeadRow[] }) {
                     <InlineSelect
                       value={lead.status}
                       options={statusOptions}
-                      labels={Object.fromEntries(statusOptions.map((s) => [s, s.charAt(0).toUpperCase() + s.slice(1)]))}
+                      labels={Object.fromEntries(
+                        statusOptions.map((s) => [
+                          s,
+                          s.charAt(0).toUpperCase() + s.slice(1),
+                        ]),
+                      )}
                       onChange={(v) => updateMutation.mutate({ id: lead.id, status: v })}
                     />
                   </td>
@@ -380,16 +369,30 @@ function QueueTable({ leads }: { leads: LeadRow[] }) {
       )}
     </div>
   );
-}
+});
 
 function TriageDashboard() {
-  const { data: leads, isLoading, error, isFetching } = useLeads();
-  const online = useOnlineStatus();
+  const { data, isFetching, error } = useLeads();
+  const [online, setOnline] = useState(true);
   const pendingCount = getPending().length;
 
-  const dataAvailable = leads && leads.length > 0;
-  const showDemoBanner = !dataAvailable && !isLoading && !error;
-  const showLiveBanner = dataAvailable && !error;
+  useEffect(() => {
+    if (!isBrowser) return;
+    setOnline(navigator.onLine);
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
+
+  const leads = data?.source === "db" ? data.rows : [];
+  const isOffline = data?.source === "offline";
+  const showOfflineBanner = isOffline && !error;
+  const showLiveBanner = data?.source === "db" && !error && !isOffline;
 
   return (
     <div className="min-h-screen bg-background">
@@ -423,33 +426,46 @@ function TriageDashboard() {
             <div className="flex-1">
               <p className="text-sm font-semibold text-red-700">Query Failed</p>
               <p className="text-xs text-red-600/80 mt-0.5">
-                Could not reach the database. Displaying cached or sample data.
-              </p>
-            </div>
-            <RefreshCw className="size-4 text-red-500 animate-spin" />
-          </div>
-        )}
-
-        {showLiveBanner && (
-          <div className="mb-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 flex items-center gap-3">
-            <Activity className="size-5 text-emerald-500 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-700">Live Database Active</p>
-              <p className="text-xs text-emerald-600/80 mt-0.5">
-                Displaying {leads!.length} lead{leads!.length !== 1 ? "s" : ""} from PostgreSQL.
+                Could not reach the database. Check DATABASE_URL configuration.
               </p>
             </div>
           </div>
         )}
 
-        {showDemoBanner && (
+        {showOfflineBanner && !error && (
           <div className="mb-6 rounded-2xl bg-amber-400/10 border border-amber-400/20 p-4 flex items-center gap-3">
             <Clock className="size-5 text-amber-500 shrink-0" />
             <div>
               <p className="text-sm font-semibold text-amber-700">No Database Connection</p>
               <p className="text-xs text-amber-600/80 mt-0.5">
                 Set <code className="bg-amber-400/20 px-1 rounded text-[11px]">DATABASE_URL</code>{" "}
-                to activate live data. Currently showing demo mode.
+                to activate live data. Pending submissions will queue locally and auto-sync when DB
+                is available.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {showLiveBanner && leads.length > 0 && (
+          <div className="mb-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 flex items-center gap-3">
+            <Activity className="size-5 text-emerald-500 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-emerald-700">Live Database Active</p>
+              <p className="text-xs text-emerald-600/80 mt-0.5">
+                Displaying {leads.length} lead{leads.length !== 1 ? "s" : ""} from PostgreSQL.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {showLiveBanner && leads.length === 0 && (
+          <div className="mb-6 rounded-2xl bg-sky-500/10 border border-sky-500/20 p-4 flex items-center gap-3">
+            <Inbox className="size-5 text-sky-500 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-sky-700">Database Connected — No Leads Yet</p>
+              <p className="text-xs text-sky-600/80 mt-0.5">
+                PostgreSQL is reachable. Leads will appear here once patients submit the contact
+                form.
               </p>
             </div>
           </div>
@@ -470,8 +486,8 @@ function TriageDashboard() {
 
         <ErrorBoundary>
           <Suspense fallback={<div className="h-32 animate-pulse rounded-2xl bg-secondary/30" />}>
-            <MetricsBar leads={leads ?? []} />
-            <QueueTable leads={leads ?? []} />
+            <MetricsBar leads={leads} />
+            <QueueTable leads={leads} />
           </Suspense>
         </ErrorBoundary>
 

@@ -14,12 +14,16 @@ export type LeadRow = {
   created_at: string;
 };
 
+export type FetchLeadsResult =
+  | { rows: LeadRow[]; source: "db" }
+  | { rows: []; source: "offline"; reason: string };
+
 const submitSchema = z.object({
-  name: z.string().min(1, "name is required"),
-  phone: z.string().optional().default(""),
-  email: z.string().optional().default(""),
-  service: z.string().optional().default(""),
-  channel: z.string().optional().default(""),
+  name: z.string().min(1, "Name is required"),
+  phone: z.string().max(50).optional().default(""),
+  email: z.string().email("Enter a valid email address").optional().default(""),
+  service: z.string().max(100).optional().default(""),
+  channel: z.string().max(50).optional().default(""),
   priority: z.enum(["low", "medium", "high"]).optional().default("medium"),
   raw_payload: z.any().optional(),
 });
@@ -77,19 +81,22 @@ export const submitLeadViaWebhook = createServerFn({ method: "POST" })
   });
 
 export const fetchLeads = createServerFn({ method: "GET" })
-  .handler(async (): Promise<LeadRow[]> => {
+  .handler(async (): Promise<FetchLeadsResult> => {
     if (!isDbAvailable()) {
-      console.warn("[Leads] DB unavailable, returning empty:", getConnectionError());
-      return [];
+      const reason = getConnectionError() || "Database unavailable";
+      console.warn("[Leads] DB unavailable:", reason);
+      return { rows: [], source: "offline", reason };
     }
     const schemaOk = await ensureSchema();
-    if (!schemaOk) return [];
+    if (!schemaOk) {
+      return { rows: [], source: "offline", reason: "Schema setup failed" };
+    }
 
     const db = getDb();
     const rows = await db.unsafe<LeadRow[]>(
       "SELECT id, name, phone, email, service, channel, priority, status, created_at FROM clinic_leads ORDER BY created_at DESC LIMIT 100",
     );
-    return rows;
+    return { rows, source: "db" };
   });
 
 const updateSchema = z.object({

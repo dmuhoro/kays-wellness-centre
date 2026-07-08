@@ -17,6 +17,7 @@ import { Route as OurStoryRouteImport } from './routes/our-story'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminTriageRouteImport } from './routes/admin/triage'
+import { Route as AdminDiagnosticsRouteImport } from './routes/admin/diagnostics'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -58,6 +59,11 @@ const AdminTriageRoute = AdminTriageRouteImport.update({
   path: '/admin/triage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDiagnosticsRoute = AdminDiagnosticsRouteImport.update({
+  id: '/admin/diagnostics',
+  path: '/admin/diagnostics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/resources': typeof ResourcesRoute
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
+  '/admin/diagnostics': typeof AdminDiagnosticsRoute
   '/admin/triage': typeof AdminTriageRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/resources': typeof ResourcesRoute
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
+  '/admin/diagnostics': typeof AdminDiagnosticsRoute
   '/admin/triage': typeof AdminTriageRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/resources': typeof ResourcesRoute
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
+  '/admin/diagnostics': typeof AdminDiagnosticsRoute
   '/admin/triage': typeof AdminTriageRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/services'
     | '/terms'
+    | '/admin/diagnostics'
     | '/admin/triage'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/services'
     | '/terms'
+    | '/admin/diagnostics'
     | '/admin/triage'
   id:
     | '__root__'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/services'
     | '/terms'
+    | '/admin/diagnostics'
     | '/admin/triage'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   ResourcesRoute: typeof ResourcesRoute
   ServicesRoute: typeof ServicesRoute
   TermsRoute: typeof TermsRoute
+  AdminDiagnosticsRoute: typeof AdminDiagnosticsRoute
   AdminTriageRoute: typeof AdminTriageRoute
 }
 
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTriageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/diagnostics': {
+      id: '/admin/diagnostics'
+      path: '/admin/diagnostics'
+      fullPath: '/admin/diagnostics'
+      preLoaderRoute: typeof AdminDiagnosticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -203,6 +223,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResourcesRoute: ResourcesRoute,
   ServicesRoute: ServicesRoute,
   TermsRoute: TermsRoute,
+  AdminDiagnosticsRoute: AdminDiagnosticsRoute,
   AdminTriageRoute: AdminTriageRoute,
 }
 export const routeTree = rootRouteImport

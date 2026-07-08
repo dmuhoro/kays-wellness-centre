@@ -1,11 +1,11 @@
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchLeads, updateLead, deleteLead } from "@/lib/api/leads.server";
-import type { LeadRow } from "@/lib/api/leads.server";
+import type { LeadRow, FetchLeadsResult } from "@/lib/api/leads.server";
 
-const LEADS_QUERY_KEY = ["leads"] as const;
+export const LEADS_QUERY_KEY = ["leads"] as const;
 
 export function useLeads() {
-  return useSuspenseQuery<LeadRow[]>({
+  return useSuspenseQuery<FetchLeadsResult>({
     queryKey: LEADS_QUERY_KEY,
     queryFn: () => fetchLeads({}),
     refetchInterval: 30_000,
@@ -21,11 +21,12 @@ export function useUpdateLead() {
       updateLead({ data: input }),
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: LEADS_QUERY_KEY });
-      const previous = queryClient.getQueryData<LeadRow[]>(LEADS_QUERY_KEY);
+      const previous = queryClient.getQueryData<FetchLeadsResult>(LEADS_QUERY_KEY);
 
-      if (previous) {
-        queryClient.setQueryData<LeadRow[]>(LEADS_QUERY_KEY, (old) =>
-          old?.map((lead) =>
+      if (previous?.source === "db") {
+        queryClient.setQueryData<FetchLeadsResult>(LEADS_QUERY_KEY, {
+          ...previous,
+          rows: previous.rows.map((lead) =>
             lead.id === input.id
               ? {
                   ...lead,
@@ -34,7 +35,7 @@ export function useUpdateLead() {
                 }
               : lead,
           ),
-        );
+        });
       }
 
       return { previous };
@@ -57,12 +58,13 @@ export function useDeleteLead() {
     mutationFn: (id: number) => deleteLead({ data: { id } }),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: LEADS_QUERY_KEY });
-      const previous = queryClient.getQueryData<LeadRow[]>(LEADS_QUERY_KEY);
+      const previous = queryClient.getQueryData<FetchLeadsResult>(LEADS_QUERY_KEY);
 
-      if (previous) {
-        queryClient.setQueryData<LeadRow[]>(LEADS_QUERY_KEY, (old) =>
-          old?.filter((lead) => lead.id !== id),
-        );
+      if (previous?.source === "db") {
+        queryClient.setQueryData<FetchLeadsResult>(LEADS_QUERY_KEY, {
+          ...previous,
+          rows: previous.rows.filter((lead) => lead.id !== id),
+        });
       }
 
       return { previous };
