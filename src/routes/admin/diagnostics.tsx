@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   Shield,
-  LockKeyhole,
   ArrowLeft,
   Activity,
   Wifi,
@@ -12,34 +11,13 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
+  LogOut,
 } from "lucide-react";
 import { getPending, STORAGE_KEY } from "@/hooks/useClinicOSSubmit";
 import { submitLead, fetchLeads } from "@/lib/api/leads.server";
 import { getServerStatus } from "@/lib/api/diagnostics.server";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
-const AUTH_KEY = "kwc_admin_auth";
-const PASSCODE = "0726";
-
-function isAuthenticated(): boolean {
-  if (!isBrowser) return false;
-  const raw = sessionStorage.getItem(AUTH_KEY);
-  if (!raw) return false;
-  try {
-    const parsed = JSON.parse(raw) as { t: number; v: string };
-    return parsed.v === PASSCODE && Date.now() - parsed.t < 3_600_000;
-  } catch {
-    return false;
-  }
-}
-
-function authenticate(passcode: string): boolean {
-  if (passcode !== PASSCODE) return false;
-  if (isBrowser) {
-    sessionStorage.setItem(AUTH_KEY, JSON.stringify({ v: passcode, t: Date.now() }));
-  }
-  return true;
-}
 
 export const Route = createFileRoute("/admin/diagnostics")({
   head: () => ({
@@ -48,86 +26,8 @@ export const Route = createFileRoute("/admin/diagnostics")({
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
-  component: DiagnosticsPage,
+  component: DiagnosticsDashboard,
 });
-
-function PasscodeGate({ onUnlock }: { onUnlock: () => void }) {
-  const [code, setCode] = useState("");
-  const [error, setError] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authenticate(code)) {
-      onUnlock();
-    } else {
-      setError(true);
-      setCode("");
-    }
-  };
-
-  return (
-    <div className="flex min-h-[70vh] items-center justify-center px-4">
-      <div className="w-full max-w-sm animate-fade-up">
-        <div className="text-center mb-8">
-          <div className="size-16 rounded-2xl gradient-warm flex items-center justify-center mx-auto mb-5 shadow-glow">
-            <LockKeyhole className="size-7 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold">System Diagnostics</h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            Engineering diagnostics panel for Kay's Wellness Centre.
-          </p>
-        </div>
-        <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 border-warm space-y-4">
-          <div>
-            <label className="text-sm font-semibold mb-2 block">Access Passcode</label>
-            <input
-              type="password"
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value);
-                setError(false);
-              }}
-              className="w-full px-4 py-3 rounded-xl border bg-background text-center text-lg tracking-[0.3em] font-mono outline-none focus:border-primary transition-colors"
-              placeholder="• • • •"
-              maxLength={4}
-              autoFocus
-            />
-            {error && (
-              <p className="text-xs text-red-500 mt-1.5 ml-1">Invalid passcode.</p>
-            )}
-          </div>
-          <button
-            type="submit"
-            className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl gradient-hero text-primary-foreground font-semibold"
-          >
-            <LockKeyhole className="size-4" /> Unlock Panel
-          </button>
-        </form>
-        <div className="mt-8 text-center">
-          <Link
-            to="/admin/triage"
-            className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1.5"
-          >
-            <ArrowLeft className="size-3" /> Return to Command Desk
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CheckLabel({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      {ok ? (
-        <CheckCircle className="size-4 text-emerald-500" />
-      ) : (
-        <XCircle className="size-4 text-red-500" />
-      )}
-      <span className={ok ? "text-emerald-700" : "text-red-700"}>{label}</span>
-    </div>
-  );
-}
 
 function DiagnosticsDashboard() {
   const [dbStatus, setDbStatus] = useState<"checking" | "available" | "unavailable">("checking");

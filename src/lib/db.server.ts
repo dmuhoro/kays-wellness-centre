@@ -1,22 +1,23 @@
-import postgres from "postgres";
+import { logger, EVENTS } from "./logger.server";
+import { requireDatabaseUrl } from "./env.server";
 
-type SqlClient = ReturnType<typeof postgres>;
-
-let sql: SqlClient | null = null;
+let sql: ReturnType<typeof import("postgres")> | null = null;
 let dbAvailable = false;
 let connectionError: string | null = null;
 
-export function getDb(): SqlClient {
+async function loadPostgres() {
+  const modName = ["p", "o", "s", "t", "g", "r", "e", "s"].join("");
+  return await import(modName);
+}
+
+export async function getDb(): Promise<ReturnType<typeof import("postgres")>> {
   if (sql) return sql;
 
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    dbAvailable = false;
-    connectionError = "DATABASE_URL is not set";
-    throw new Error(connectionError);
-  }
+  const url = requireDatabaseUrl();
 
-  sql = postgres(url, {
+  const postgres = await loadPostgres();
+
+  sql = postgres.default(url, {
     max: 4,
     idle_timeout: 20,
     connect_timeout: 10,
@@ -39,24 +40,27 @@ export function getConnectionError(): string | null {
 }
 
 export async function withDb<T>(
-  fn: (db: SqlClient) => Promise<T>,
+  fn: (db: ReturnType<typeof import("postgres")>) => Promise<T>,
   fallback: () => Promise<T>,
 ): Promise<T> {
   try {
-    const db = getDb();
+    const db = await getDb();
     return await fn(db);
   } catch (err) {
     dbAvailable = false;
     connectionError =
       err instanceof Error ? err.message : "Unknown database error";
-    console.error("[DB] Connection failed, using fallback:", connectionError);
+    logger.error("Database connection failed, using fallback", {
+      event: EVENTS.DB_UNAVAILABLE,
+      error: connectionError,
+    });
     return fallback();
   }
 }
 
-export async function ensureSchema(): Promise<boolean> {
+export async function ensureSchema(multiTenant = false): Promise<boolean> {
   try {
-    const db = getDb();
+    const db = await getDb();
     await db.unsafe(`
       CREATE TABLE IF NOT EXISTS clinic_leads (
         id SERIAL PRIMARY KEY,
@@ -71,9 +75,60 @@ export async function ensureSchema(): Promise<boolean> {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    if (multiTenant) {
+      await db.unsafe(`
+        CREATE TABLE IF NOT EXISTS organizations (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name VARCHAR(255) NOT NULL,
+          slug VARCHAR(100) NOT NULL UNIQUE,
+          timezone VARCHAR(50) NOT NULL DEFAULT 'UTC',
+          settings JSONB DEFAULT '{}',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+          email VARCHAR(255) NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          name VARCHAR(255) NOT NULL DEFAULT '',
+          role VARCHAR(50) NOT NULL DEFAULT 'staff',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(organization_id, email)
+        );
+
+        CREATE TABLE IF NOT EXISTS clinic_availability (
+          id SERIAL PRIMARY KEY,
+          organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+          day_of_week SMALLINT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+          start_time TIME NOT NULL,
+          end_time TIME NOT NULL,
+          slot_duration_minutes INT NOT NULL DEFAULT 60,
+          UNIQUE(organization_id, day_of_week, start_time)
+        );
+      `);
+
+      const hasOrgIdCol = await db.unsafe(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'clinic_leads' AND column_name = 'organization_id'
+      `);
+      if (hasOrgIdCol.length === 0) {
+        await db.unsafe(`
+          ALTER TABLE clinic_leads ADD COLUMN organization_id UUID REFERENCES organizations(id);
+          ALTER TABLE clinic_leads ADD COLUMN appointment_timestamp TIMESTAMP WITH TIME ZONE;
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_org_appt
+            ON clinic_leads (organization_id, appointment_timestamp)
+            WHERE appointment_timestamp IS NOT NULL;
+        `);
+      }
+    }
     return true;
   } catch (err) {
-    console.error("[DB] Schema setup failed:", err);
+    logger.error("Schema setup failed", {
+      event: EVENTS.SCHEMA_SETUP,
+      error: (err as Error).message,
+    });
     dbAvailable = false;
     return false;
   }

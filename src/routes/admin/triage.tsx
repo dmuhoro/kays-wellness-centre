@@ -1,11 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, Suspense, memo } from "react";
 import {
   Shield,
   Users,
   Activity,
   Clock,
-  LockKeyhole,
   ArrowLeft,
   Wifi,
   WifiOff,
@@ -17,6 +16,7 @@ import {
   Trash2,
   ChevronDown,
   Check,
+  LogOut,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { TriagePriority } from "@/hooks/clinic-os-types";
@@ -26,28 +26,6 @@ import { useLeads, useUpdateLead, useDeleteLead } from "@/hooks/useLeads";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
-const AUTH_KEY = "kwc_admin_auth";
-const PASSCODE = "0726";
-
-function isAuthenticated(): boolean {
-  if (!isBrowser) return false;
-  const raw = sessionStorage.getItem(AUTH_KEY);
-  if (!raw) return false;
-  try {
-    const parsed = JSON.parse(raw) as { t: number; v: string };
-    return parsed.v === PASSCODE && Date.now() - parsed.t < 3_600_000;
-  } catch {
-    return false;
-  }
-}
-
-function authenticate(passcode: string): boolean {
-  if (passcode !== PASSCODE) return false;
-  if (isBrowser) {
-    sessionStorage.setItem(AUTH_KEY, JSON.stringify({ v: passcode, t: Date.now() }));
-  }
-  return true;
-}
 
 const serviceLabels: Record<string, string> = {
   bhrh: "Bioidentical Hormone Restoration",
@@ -91,80 +69,6 @@ export const Route = createFileRoute("/admin/triage")({
   }),
   component: TriagePage,
 });
-
-function PasscodeGate({ onUnlock }: { onUnlock: () => void }) {
-  const [code, setCode] = useState("");
-  const [error, setError] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authenticate(code)) {
-      onUnlock();
-    } else {
-      setError(true);
-      setCode("");
-    }
-  };
-
-  return (
-    <div className="flex min-h-[70vh] items-center justify-center px-4">
-      <div className="w-full max-w-sm animate-fade-up">
-        <div className="text-center mb-8">
-          <div className="size-16 rounded-2xl gradient-warm flex items-center justify-center mx-auto mb-5 shadow-glow">
-            <LockKeyhole className="size-7 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold">Clinical Command Desk</h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            Secure triage panel for Kay's Wellness Centre clinical operations.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="glass rounded-2xl p-6 border-warm space-y-4">
-          <div>
-            <label className="text-sm font-semibold mb-2 block">Access Passcode</label>
-            <input
-              type="password"
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value);
-                setError(false);
-              }}
-              className={`w-full px-4 py-3 rounded-xl border bg-background text-center text-lg tracking-[0.3em] font-mono outline-none transition-colors ${
-                error ? "border-red-400 focus:border-red-500" : "border-border focus:border-primary"
-              }`}
-              placeholder="• • • •"
-              maxLength={4}
-              autoFocus
-            />
-            {error && (
-              <p className="text-xs text-red-500 mt-1.5 ml-1">
-                Invalid passcode. Please try again.
-              </p>
-            )}
-          </div>
-          <button
-            type="submit"
-            className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl gradient-hero text-primary-foreground font-semibold hover:shadow-glow transition-all"
-          >
-            <LockKeyhole className="size-4" /> Unlock Desk
-          </button>
-          <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
-            Authorised clinical personnel only. All access is logged and monitored.
-          </p>
-        </form>
-
-        <div className="mt-8 text-center">
-          <Link
-            to="/"
-            className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1.5 transition-colors"
-          >
-            <ArrowLeft className="size-3" /> Return to public site
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function SyncIndicator({ online }: { online: boolean }) {
   return (
@@ -301,7 +205,7 @@ const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
                 <th className="p-4 font-medium hidden sm:table-cell">Contact</th>
                 <th className="p-4 font-medium hidden md:table-cell">Service</th>
                 <th className="p-4 font-medium">Priority</th>
-                <th className="p-4 font-medium hidden lg:table-cell">Received</th>
+                <th className="p-4 font-medium hidden lg:table-cell">Appointment</th>
                 <th className="p-4 font-medium">Status</th>
                 <th className="p-4 pr-5 font-medium w-12" />
               </tr>
@@ -333,7 +237,9 @@ const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
                     />
                   </td>
                   <td className="p-4 text-muted-foreground hidden lg:table-cell text-xs">
-                    {formatDate(lead.created_at)}
+                    {lead.appointment_timestamp
+                      ? formatDate(lead.appointment_timestamp)
+                      : "—"}
                   </td>
                   <td className="p-4">
                     <InlineSelect
@@ -399,12 +305,9 @@ function TriageDashboard() {
       <header className="sticky top-0 z-40 glass border-b border-border">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              to="/"
-              className="size-8 rounded-lg gradient-hero flex items-center justify-center"
-            >
+            <div className="size-8 rounded-lg gradient-hero flex items-center justify-center">
               <Shield className="size-4 text-primary-foreground" />
-            </Link>
+            </div>
             <div>
               <div className="font-bold text-sm">Clinical Command Desk</div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -415,6 +318,13 @@ function TriageDashboard() {
           <div className="flex items-center gap-4">
             <SyncIndicator online={online} />
             {isFetching && <RefreshCw className="size-4 text-muted-foreground animate-spin" />}
+            <Link
+              to="/admin/login"
+              className="size-8 rounded-lg glass flex items-center justify-center hover:bg-secondary transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="size-4 text-muted-foreground" />
+            </Link>
           </div>
         </div>
       </header>
@@ -453,19 +363,6 @@ function TriageDashboard() {
               <p className="text-sm font-semibold text-emerald-700">Live Database Active</p>
               <p className="text-xs text-emerald-600/80 mt-0.5">
                 Displaying {leads.length} lead{leads.length !== 1 ? "s" : ""} from PostgreSQL.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {showLiveBanner && leads.length === 0 && (
-          <div className="mb-6 rounded-2xl bg-sky-500/10 border border-sky-500/20 p-4 flex items-center gap-3">
-            <Inbox className="size-5 text-sky-500 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-sky-700">Database Connected — No Leads Yet</p>
-              <p className="text-xs text-sky-600/80 mt-0.5">
-                PostgreSQL is reachable. Leads will appear here once patients submit the contact
-                form.
               </p>
             </div>
           </div>
@@ -514,12 +411,6 @@ function TriageDashboard() {
 }
 
 function TriagePage() {
-  const [authed, setAuthed] = useState(isAuthenticated());
-
-  if (!authed) {
-    return <PasscodeGate onUnlock={() => setAuthed(true)} />;
-  }
-
   return (
     <ErrorBoundary>
       <TriageDashboard />

@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getDb, ensureSchema, isDbAvailable, getConnectionError } from "../db.server";
+import { logger, EVENTS } from "../logger.server";
+import { requireOrg } from "../tenant.server";
 
 export type LeadRow = {
   id: number;
@@ -11,6 +13,8 @@ export type LeadRow = {
   channel: string;
   priority: string;
   status: string;
+  organization_id: string;
+  appointment_timestamp: string | null;
   created_at: string;
 };
 
@@ -21,10 +25,11 @@ export type FetchLeadsResult =
 const submitSchema = z.object({
   name: z.string().min(1, "Name is required"),
   phone: z.string().max(50).optional().default(""),
-  email: z.string().email("Enter a valid email address").optional().default(""),
+  email: z.union([z.string().email("Enter a valid email address"), z.literal("")]).optional().default(""),
   service: z.string().max(100).optional().default(""),
   channel: z.string().max(50).optional().default(""),
   priority: z.enum(["low", "medium", "high"]).optional().default("medium"),
+  appointment_timestamp: z.string().datetime().optional().nullable(),
   raw_payload: z.any().optional(),
 });
 
@@ -32,19 +37,42 @@ export const submitLead = createServerFn({ method: "POST" })
   .inputValidator(submitSchema)
   .handler(async ({ data }) => {
     if (!isDbAvailable()) {
-      console.warn("[Leads] DB unavailable, rejecting lead submission:", getConnectionError());
+      logger.warn("DB unavailable, rejecting lead submission", {
+        event: EVENTS.DB_UNAVAILABLE,
+        error: getConnectionError(),
+      });
       return { id: null, status: "db_unavailable" as const };
     }
 
-    const schemaOk = await ensureSchema();
+    const schemaOk = await ensureSchema(true);
     if (!schemaOk) {
       return { id: null, status: "db_unavailable" as const };
     }
 
-    const db = getDb();
+    const { orgId, log } = requireOrg();
+
+    const db = await getDb();
+    const start = Date.now();
+
+    if (data.appointment_timestamp) {
+      const collision = await db.unsafe(
+        `SELECT id FROM clinic_leads
+         WHERE organization_id = $1 AND appointment_timestamp = $2
+         LIMIT 1`,
+        [orgId, data.appointment_timestamp],
+      );
+      if (collision.length > 0) {
+        log.warn("Slot already booked", {
+          event: EVENTS.SLOT_UNAVAILABLE,
+          appointment_timestamp: data.appointment_timestamp,
+        });
+        return { id: null, status: "slot_unavailable" as const };
+      }
+    }
+
     const result = await db.unsafe(
-      `INSERT INTO clinic_leads (name, phone, email, service, channel, priority, raw_payload)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      `INSERT INTO clinic_leads (name, phone, email, service, channel, priority, organization_id, appointment_timestamp, raw_payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
       [
         data.name.trim(),
         data.phone.trim(),
@@ -52,11 +80,17 @@ export const submitLead = createServerFn({ method: "POST" })
         data.service.trim(),
         data.channel.trim(),
         data.priority,
+        orgId,
+        data.appointment_timestamp || null,
         data.raw_payload ? JSON.stringify(data.raw_payload) : null,
       ],
     );
     const leadId = result[0]?.id as number | undefined;
-    console.log(`[Leads] Lead #${leadId} inserted`);
+    log.info("Lead inserted", {
+      event: EVENTS.LEAD_CREATED,
+      leadId,
+      duration_ms: Date.now() - start,
+    });
     return { id: leadId ?? null, status: "created" as const };
   });
 
@@ -68,6 +102,7 @@ export const submitLeadViaWebhook = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    const { log } = requireOrg();
     const res = await fetch(data.webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -75,8 +110,13 @@ export const submitLeadViaWebhook = createServerFn({ method: "POST" })
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
+      log.error("Webhook delivery failed", {
+        event: EVENTS.QUEUE_SYNC_FAILURE,
+        status: res.status,
+      });
       throw new Error(`Webhook returned ${res.status}`);
     }
+    log.info("Webhook sent", { event: EVENTS.QUEUE_SYNC_SUCCESS });
     return { status: "webhook_sent" as const };
   });
 
@@ -84,18 +124,34 @@ export const fetchLeads = createServerFn({ method: "GET" })
   .handler(async (): Promise<FetchLeadsResult> => {
     if (!isDbAvailable()) {
       const reason = getConnectionError() || "Database unavailable";
-      console.warn("[Leads] DB unavailable:", reason);
+      logger.warn("DB unavailable", {
+        event: EVENTS.DB_UNAVAILABLE,
+        error: reason,
+      });
       return { rows: [], source: "offline", reason };
     }
-    const schemaOk = await ensureSchema();
+
+    const schemaOk = await ensureSchema(true);
     if (!schemaOk) {
       return { rows: [], source: "offline", reason: "Schema setup failed" };
     }
 
-    const db = getDb();
+    const { orgId, log } = requireOrg();
+
+    const db = await getDb();
+    const start = Date.now();
     const rows = await db.unsafe<LeadRow[]>(
-      "SELECT id, name, phone, email, service, channel, priority, status, created_at FROM clinic_leads ORDER BY created_at DESC LIMIT 100",
+      `SELECT id, name, phone, email, service, channel, priority, status, organization_id, appointment_timestamp, created_at
+       FROM clinic_leads
+       WHERE organization_id = $1
+       ORDER BY created_at DESC LIMIT 100`,
+      [orgId],
     );
+    log.info("Leads fetched", {
+      event: EVENTS.LEAD_FETCHED,
+      count: rows.length,
+      duration_ms: Date.now() - start,
+    });
     return { rows, source: "db" };
   });
 
@@ -111,18 +167,18 @@ export const updateLead = createServerFn({ method: "POST" })
     if (!isDbAvailable()) {
       return { status: "db_unavailable" as const };
     }
-    const db = getDb();
+    const { orgId, log } = requireOrg();
 
+    const db = await getDb();
     const setClauses: string[] = [];
     const values: (string | number)[] = [];
-    let idx = 1;
 
     if (data.status !== undefined) {
-      setClauses.push(`status = $${idx++}`);
+      setClauses.push(`status = $${values.length + 1}`);
       values.push(data.status);
     }
     if (data.priority !== undefined) {
-      setClauses.push(`priority = $${idx++}`);
+      setClauses.push(`priority = $${values.length + 1}`);
       values.push(data.priority);
     }
 
@@ -130,12 +186,15 @@ export const updateLead = createServerFn({ method: "POST" })
       return { status: "noop" as const };
     }
 
-    values.push(data.id);
+    values.push(data.id, orgId);
     await db.unsafe(
-      `UPDATE clinic_leads SET ${setClauses.join(", ")} WHERE id = $${idx}`,
+      `UPDATE clinic_leads SET ${setClauses.join(", ")} WHERE id = $${values.length - 1} AND organization_id = $${values.length}`,
       values,
     );
-    console.log(`[Leads] Lead #${data.id} updated:`, setClauses.join(", "));
+    log.info("Lead updated", {
+      event: EVENTS.LEAD_UPDATED,
+      leadId: data.id,
+    });
     return { status: "updated" as const };
   });
 
@@ -145,8 +204,16 @@ export const deleteLead = createServerFn({ method: "POST" })
     if (!isDbAvailable()) {
       return { status: "db_unavailable" as const };
     }
-    const db = getDb();
-    await db.unsafe("DELETE FROM clinic_leads WHERE id = $1", [data.id]);
-    console.log(`[Leads] Lead #${data.id} deleted`);
+    const { orgId, log } = requireOrg();
+
+    const db = await getDb();
+    await db.unsafe(
+      "DELETE FROM clinic_leads WHERE id = $1 AND organization_id = $2",
+      [data.id, orgId],
+    );
+    log.info("Lead deleted", {
+      event: EVENTS.LEAD_DELETED,
+      leadId: data.id,
+    });
     return { status: "deleted" as const };
   });
