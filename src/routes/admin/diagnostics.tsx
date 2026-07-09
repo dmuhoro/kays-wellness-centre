@@ -12,10 +12,14 @@ import {
   CheckCircle,
   XCircle,
   LogOut,
+  Bell,
+  Loader2,
 } from "lucide-react";
 import { getPending, STORAGE_KEY } from "@/hooks/useClinicOSSubmit";
 import { submitLead, fetchLeads } from "@/lib/api/leads.server";
 import { getServerStatus } from "@/lib/api/diagnostics.server";
+import { NetworkStatus } from "@/components/NetworkStatus";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
 
@@ -30,6 +34,7 @@ export const Route = createFileRoute("/admin/diagnostics")({
 });
 
 function DiagnosticsDashboard() {
+  const { queueStats, isSyncing, triggerSync } = useNetworkStatus();
   const [dbStatus, setDbStatus] = useState<"checking" | "available" | "unavailable">("checking");
   const [dbError, setDbError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -100,18 +105,19 @@ function DiagnosticsDashboard() {
                 Engineering Console
               </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {dbStatus === "available" ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                <Database className="size-3" /> DB Online
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-amber-400/10 text-amber-600 border border-amber-400/20">
-                <WifiOff className="size-3" /> DB Offline
-              </span>
-            )}
-          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <NetworkStatus />
+          {dbStatus === "available" ? (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+              <Database className="size-3" /> DB Online
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-amber-400/10 text-amber-600 border border-amber-400/20">
+              <WifiOff className="size-3" /> DB Offline
+            </span>
+          )}
+        </div>
         </div>
       </header>
 
@@ -234,6 +240,61 @@ function DiagnosticsDashboard() {
               ? JSON.stringify(getPending(), null, 2) || "(empty)"
               : "(not in browser)"}
           </pre>
+        </div>
+
+        {/* Panel: Notification Queue Telemetry */}
+        <div className="glass rounded-2xl border-warm p-5">
+          <h2 className="font-semibold text-sm mb-4 flex items-center gap-2">
+            <Bell className="size-4 text-sky-500" /> Notification Queue Telemetry
+          </h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            The async notification queue processes outbound events (SMS, WhatsApp) with exponential
+            backoff. The <code className="bg-secondary px-1 rounded">triggerQueueProcessing</code>{" "}
+            server function is polled automatically every 30 seconds.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-3 mb-4">
+            <div className="bg-secondary/30 rounded-xl p-3 border border-border/50">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                Last Sync
+              </div>
+              <div className="text-sm font-semibold">
+                {queueStats?.lastRun
+                  ? new Date(queueStats.lastRun).toLocaleTimeString()
+                  : "Not yet run"}
+              </div>
+            </div>
+            <div className="bg-secondary/30 rounded-xl p-3 border border-border/50">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                Dispatch Failures
+              </div>
+              <div className="text-sm font-semibold">
+                {queueStats && queueStats.failed > 0 ? (
+                  <span className="text-amber-500">{queueStats.failed} failed</span>
+                ) : (
+                  <span className="text-emerald-500">None</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={triggerSync}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500/10 text-sky-600 text-xs font-semibold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+          >
+            {isSyncing ? (
+              <>
+                <Loader2 className="size-3 animate-spin" /> Syncing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="size-3" /> Trigger Queue Processing
+              </>
+            )}
+          </button>
+          <div className="mt-3 text-[10px] text-muted-foreground/60">
+            Queue polling is best-effort. Failures are logged server-side via{" "}
+            <code className="bg-secondary px-1 rounded">NOTIFICATION_FAILED</code> events.
+          </div>
         </div>
 
         {/* Navigation */}

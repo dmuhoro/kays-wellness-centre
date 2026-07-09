@@ -7,7 +7,14 @@ import { submitLead } from "@/lib/api/leads.server";
 import { LEADS_QUERY_KEY } from "./useLeads";
 
 const STORAGE_KEY = "kwc_pending_submissions";
+export const STORAGE_KEY_EXPORTED = STORAGE_KEY;
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
+
+const pendingOptimistic: Map<string, { name: string; status: "saving" | "sent" | "failed" }> =
+  new Map();
+export function getOptimisticLeads() {
+  return Array.from(pendingOptimistic.values());
+}
 
 function readEnv(name: string): string | undefined {
   if (
@@ -158,13 +165,24 @@ export function useClinicOSSubmit() {
       setStatus("submitting");
       const packet = buildPacket(input);
 
+      const optimisticId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const optimisticLabel = packet.formData.name || "New inquiry";
+      pendingOptimistic.set(optimisticId, { name: optimisticLabel, status: "saving" as const });
+
+      const finalizeOptimistic = (status: "sent" | "failed") => {
+        pendingOptimistic.set(optimisticId, { name: optimisticLabel, status });
+        setTimeout(() => {
+          pendingOptimistic.delete(optimisticId);
+        }, 3000);
+      };
+
       if (!isBrowser || !navigator.onLine) {
         addPending(packet);
+        finalizeOptimistic("sent");
         setStatus("success");
         toast.success("Inquiry saved offline", {
           description: "We'll send it automatically when your connection returns.",
         });
-        console.log("[ClinicOS] Cached offline:", JSON.stringify(packet, null, 2));
         return "success";
       }
 
@@ -184,27 +202,25 @@ export function useClinicOSSubmit() {
 
         if (result.status === "db_unavailable") {
           addPending(packet);
+          finalizeOptimistic("sent");
           setStatus("success");
           toast.success("Inquiry queued for delivery", {
             description: "Our system will retry automatically.",
           });
-          console.log("[ClinicOS] DB unavailable — queued for retry");
           return "success";
         }
 
+        finalizeOptimistic("sent");
         setStatus("success");
         queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
         return "success";
       } catch {
         addPending(packet);
+        finalizeOptimistic("failed");
         setStatus("success");
         toast.success("Inquiry queued for delivery", {
           description: "Our system will retry automatically.",
         });
-        console.log(
-          "[ClinicOS] Server fn failed — cached for retry:",
-          JSON.stringify(packet, null, 2),
-        );
         return "success";
       }
     },

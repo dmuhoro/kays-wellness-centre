@@ -1,13 +1,10 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, Suspense, memo } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, Suspense, memo } from "react";
 import {
   Shield,
   Users,
   Activity,
   Clock,
-  ArrowLeft,
-  Wifi,
-  WifiOff,
   RefreshCw,
   FileText,
   Scale,
@@ -17,6 +14,7 @@ import {
   ChevronDown,
   Check,
   LogOut,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { TriagePriority } from "@/hooks/clinic-os-types";
@@ -24,6 +22,7 @@ import { getPending } from "@/hooks/useClinicOSSubmit";
 import type { LeadRow } from "@/lib/api/leads.server";
 import { useLeads, useUpdateLead, useDeleteLead } from "@/hooks/useLeads";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { NetworkStatus } from "@/components/NetworkStatus";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
 
@@ -69,34 +68,6 @@ export const Route = createFileRoute("/admin/triage")({
   }),
   component: TriagePage,
 });
-
-function SyncIndicator({ online }: { online: boolean }) {
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className="relative flex size-2.5">
-        {online ? (
-          <span className="absolute inset-0 rounded-full bg-emerald-500" />
-        ) : (
-          <>
-            <span className="absolute inset-0 rounded-full bg-amber-400 animate-ping" />
-            <span className="absolute inset-0 rounded-full bg-amber-400" />
-          </>
-        )}
-      </span>
-      <span className="text-muted-foreground">
-        {online ? (
-          <>
-            <Wifi className="size-3 inline mr-1" /> System Online
-          </>
-        ) : (
-          <>
-            <WifiOff className="size-3 inline mr-1" /> Offline Queue
-          </>
-        )}
-      </span>
-    </div>
-  );
-}
 
 const MetricsBar = memo(function MetricsBar({ leads }: { leads: LeadRow[] }) {
   const high = leads.filter((l) => l.priority === "high").length;
@@ -174,8 +145,10 @@ const InlineSelect = memo(function InlineSelect<T extends string>({
 });
 
 const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
-  const updateMutation = useUpdateLead();
-  const deleteMutation = useDeleteLead();
+  const { mutate: updateLead, mutatingIds: updateMutatingIds } = useUpdateLead();
+  const { mutate: deleteLead, mutatingIds: deleteMutatingIds } = useDeleteLead();
+
+  const allMutating = new Set([...updateMutatingIds, ...deleteMutatingIds]);
 
   return (
     <div className="glass rounded-2xl border-warm overflow-hidden">
@@ -217,7 +190,12 @@ const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
                   className="border-b border-border/50 last:border-0 hover:bg-secondary/30 transition-colors"
                 >
                   <td className="p-4 pl-5">
-                    <div className="font-medium">{lead.name}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      {lead.name}
+                      {allMutating.has(lead.id) && (
+                        <RefreshCw className="size-3 text-muted-foreground animate-spin shrink-0" />
+                      )}
+                    </div>
                   </td>
                   <td className="p-4 text-muted-foreground hidden sm:table-cell">
                     {lead.email}
@@ -233,7 +211,7 @@ const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
                       value={lead.priority as TriagePriority}
                       options={priorityOptions}
                       labels={priorityLabel}
-                      onChange={(v) => updateMutation.mutate({ id: lead.id, priority: v })}
+                      onChange={(v) => updateLead({ id: lead.id, priority: v as TriagePriority })}
                     />
                   </td>
                   <td className="p-4 text-muted-foreground hidden lg:table-cell text-xs">
@@ -251,20 +229,24 @@ const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
                           s.charAt(0).toUpperCase() + s.slice(1),
                         ]),
                       )}
-                      onChange={(v) => updateMutation.mutate({ id: lead.id, status: v })}
+                      onChange={(v) => updateLead({ id: lead.id, status: v })}
                     />
                   </td>
                   <td className="p-4 pr-5">
                     <button
                       onClick={() => {
                         if (window.confirm(`Delete lead for ${lead.name}?`)) {
-                          deleteMutation.mutate(lead.id);
+                          deleteLead(lead.id);
                         }
                       }}
                       className="size-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
                       title="Delete lead"
                     >
-                      <Trash2 className="size-4" />
+                      {allMutating.has(lead.id) ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-4" />
+                      )}
                     </button>
                   </td>
                 </tr>
@@ -279,21 +261,7 @@ const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
 
 function TriageDashboard() {
   const { data, isFetching, error } = useLeads();
-  const [online, setOnline] = useState(true);
   const pendingCount = getPending().length;
-
-  useEffect(() => {
-    if (!isBrowser) return;
-    setOnline(navigator.onLine);
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
-    return () => {
-      window.removeEventListener("online", on);
-      window.removeEventListener("offline", off);
-    };
-  }, []);
 
   const leads = data?.source === "db" ? data.rows : [];
   const isOffline = data?.source === "offline";
@@ -316,7 +284,7 @@ function TriageDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <SyncIndicator online={online} />
+            <NetworkStatus />
             {isFetching && <RefreshCw className="size-4 text-muted-foreground animate-spin" />}
             <Link
               to="/admin/login"
