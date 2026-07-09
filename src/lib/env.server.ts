@@ -11,6 +11,8 @@ const envSchema = z.object({
   DEFAULT_ADMIN_PASSWORD: z.string().min(6).default("admin0726"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   VERCEL_REGION: z.string().optional(),
+  MAX_QUEUE_RETRIES: z.coerce.number().int().min(0).max(10).default(3),
+  QUEUE_POLL_INTERVAL_MS: z.coerce.number().int().min(1000).default(5000),
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -64,6 +66,14 @@ export function requireDatabaseUrl(): string {
 
 export function getNodeEnv(): string {
   return getEnv().NODE_ENV;
+}
+
+export function getMaxQueueRetries(): number {
+  return getEnv().MAX_QUEUE_RETRIES;
+}
+
+export function getQueuePollIntervalMs(): number {
+  return getEnv().QUEUE_POLL_INTERVAL_MS;
 }
 
 export { getEnv };

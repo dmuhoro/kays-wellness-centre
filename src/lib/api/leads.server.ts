@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb, ensureSchema, isDbAvailable, getConnectionError } from "../db.server";
 import { logger, EVENTS } from "../logger.server";
 import { requireOrg } from "../tenant.server";
+import { enqueueNotification } from "../queue.server";
 
 export type LeadRow = {
   id: number;
@@ -91,6 +92,22 @@ export const submitLead = createServerFn({ method: "POST" })
       leadId,
       duration_ms: Date.now() - start,
     });
+
+    if (leadId != null) {
+      enqueueNotification({
+        orgId,
+        leadId,
+        eventType: "lead_created",
+        payload: { name: data.name.trim(), service: data.service.trim() },
+      }).catch((err) => {
+        log.error("Failed to enqueue notification", {
+          event: EVENTS.QUEUE_SYNC_FAILURE,
+          leadId,
+          error: (err as Error).message,
+        });
+      });
+    }
+
     return { id: leadId ?? null, status: "created" as const };
   });
 

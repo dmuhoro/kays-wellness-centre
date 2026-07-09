@@ -123,6 +123,27 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         `);
       }
     }
+
+    await db.unsafe(`
+      CREATE TABLE IF NOT EXISTS notification_queue (
+        id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL,
+        lead_id INTEGER NOT NULL,
+        event_type VARCHAR(50) NOT NULL,
+        idempotency_key VARCHAR(64) NOT NULL UNIQUE,
+        payload_json JSONB,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        retry_count SMALLINT NOT NULL DEFAULT 0,
+        max_retries SMALLINT NOT NULL DEFAULT 3,
+        next_retry_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        last_error TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        processed_at TIMESTAMP WITH TIME ZONE
+      );
+      CREATE INDEX IF NOT EXISTS idx_notification_queue_status
+        ON notification_queue (status, next_retry_at);
+    `);
+
     return true;
   } catch (err) {
     logger.error("Schema setup failed", {
