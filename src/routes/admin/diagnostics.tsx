@@ -20,6 +20,8 @@ import { submitLead, fetchLeads } from "@/lib/api/leads.server";
 import { getServerStatus } from "@/lib/api/diagnostics.server";
 import { NetworkStatus } from "@/components/NetworkStatus";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { CheckLabel } from "@/components/CheckLabel";
+import { PasscodeGate } from "@/components/PasscodeGate";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
 
@@ -30,7 +32,7 @@ export const Route = createFileRoute("/admin/diagnostics")({
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
-  component: DiagnosticsDashboard,
+  component: DiagnosticsPage,
 });
 
 function DiagnosticsDashboard() {
@@ -310,7 +312,7 @@ function DiagnosticsDashboard() {
 }
 
 function DiagnosticsPage() {
-  const [authed, setAuthed] = useState(isAuthenticated());
+  const [authed, setAuthed] = useState(false);
 
   if (!authed) {
     return <PasscodeGate onUnlock={() => setAuthed(true)} />;

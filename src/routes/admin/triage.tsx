@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, Suspense, memo } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, Suspense, memo, useEffect } from "react";
 import {
   Shield,
   Users,
@@ -23,6 +23,7 @@ import type { LeadRow } from "@/lib/api/leads.server";
 import { useLeads, useUpdateLead, useDeleteLead } from "@/hooks/useLeads";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { NetworkStatus } from "@/components/NetworkStatus";
+import { useAuth } from "@/hooks/useAuth";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
 
@@ -379,6 +380,30 @@ function TriageDashboard() {
 }
 
 function TriagePage() {
+  const navigate = useNavigate();
+  const { loading, authenticated } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !authenticated) {
+      navigate({ to: "/admin/login" });
+    }
+  }, [loading, authenticated, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="size-10 rounded-xl gradient-hero flex items-center justify-center mx-auto">
+            <Shield className="size-5 text-primary-foreground animate-pulse" />
+          </div>
+          <p className="text-sm text-muted-foreground">Verifying session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authenticated) return null;
+
   return (
     <ErrorBoundary>
       <TriageDashboard />
