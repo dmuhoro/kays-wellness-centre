@@ -7,7 +7,16 @@ vi.mock("sonner", () => ({
 vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
   useMutation: () => ({ mutate: vi.fn(), isPending: false }),
-  useSuspenseQuery: () => ({ data: { rows: [], source: "db" } }),
+}));
+
+vi.mock("@/lib/api/interactions.server", () => ({
+  getLeadsWithPendingReplies: vi.fn().mockResolvedValue([]),
+  getLeadInteractions: vi.fn().mockResolvedValue([]),
+  logInteraction: vi.fn().mockResolvedValue({ status: "recorded" }),
+}));
+
+vi.mock("@/lib/api/dispatch.server", () => ({
+  dispatchLeadMessage: vi.fn().mockResolvedValue({ status: "dispatched" }),
 }));
 
 describe("PipelineBoard", () => {

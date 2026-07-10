@@ -125,6 +125,20 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
     }
 
     await db.unsafe(`
+      CREATE TABLE IF NOT EXISTS lead_interactions (
+        id SERIAL PRIMARY KEY,
+        lead_id INTEGER NOT NULL REFERENCES clinic_leads(id) ON DELETE CASCADE,
+        organization_id UUID NOT NULL REFERENCES organizations(id),
+        event_type VARCHAR(50) NOT NULL,
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_lead_interactions_lead
+        ON lead_interactions (lead_id, created_at DESC);
+
+    `);
+
+    await db.unsafe(`
       CREATE TABLE IF NOT EXISTS notification_queue (
         id SERIAL PRIMARY KEY,
         tenant_id UUID NOT NULL,

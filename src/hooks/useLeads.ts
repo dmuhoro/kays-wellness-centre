@@ -16,7 +16,7 @@ export function useLeads() {
   });
 }
 
-type UpdateInput = { id: number; status?: string; priority?: TriagePriority };
+type UpdateInput = { id: number; status?: string; priority?: TriagePriority; appointment_timestamp?: string | null };
 type DeleteInput = number;
 
 export function useUpdateLead() {

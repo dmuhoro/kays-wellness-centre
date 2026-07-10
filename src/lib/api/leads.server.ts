@@ -176,6 +176,7 @@ const updateSchema = z.object({
   id: z.number(),
   status: z.string().optional(),
   priority: z.enum(["low", "medium", "high"]).optional(),
+  appointment_timestamp: z.string().datetime().optional().nullable(),
 });
 
 export const updateLead = createServerFn({ method: "POST" })
@@ -197,6 +198,10 @@ export const updateLead = createServerFn({ method: "POST" })
     if (data.priority !== undefined) {
       setClauses.push(`priority = $${values.length + 1}`);
       values.push(data.priority);
+    }
+    if (data.appointment_timestamp !== undefined) {
+      setClauses.push(`appointment_timestamp = $${values.length + 1}`);
+      values.push(data.appointment_timestamp);
     }
 
     if (setClauses.length === 0) {

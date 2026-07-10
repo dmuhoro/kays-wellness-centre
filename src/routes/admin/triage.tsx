@@ -18,6 +18,7 @@ import {
   Columns,
   Table2,
   BarChart3,
+  Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { TriagePriority } from "@/hooks/clinic-os-types";
@@ -28,6 +29,9 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { NetworkStatus } from "@/components/NetworkStatus";
 import { useAuth } from "@/hooks/useAuth";
 import { PipelineBoard } from "@/components/leads/PipelineBoard";
+import { CalendarGrid } from "@/components/leads/CalendarGrid";
+import { usePendingReplies } from "@/hooks/usePipelineActivity";
+import { getAvailableSlots } from "@/lib/api/scheduling.server";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
 
@@ -271,7 +275,9 @@ const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
 function TriageDashboard() {
   const { data, isFetching, error } = useLeads();
   const pendingCount = getPending().length;
-  const [view, setView] = useState<"table" | "pipeline">("pipeline");
+  const [view, setView] = useState<"table" | "pipeline" | "calendar">("pipeline");
+  const { pendingReplyIds } = usePendingReplies();
+  const cancellationAlertIds = new Set<number>();
 
   const leads = data?.source === "db" ? data.rows : [];
   const isOffline = data?.source === "offline";
@@ -304,7 +310,7 @@ function TriageDashboard() {
             <div className="flex rounded-lg border border-border overflow-hidden">
               <button
                 onClick={() => setView("pipeline")}
-                className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                className={`px-2 py-1.5 text-[11px] font-semibold transition-colors ${
                   view === "pipeline" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary/50"
                 }`}
                 title="Pipeline Board"
@@ -312,8 +318,17 @@ function TriageDashboard() {
                 <Columns className="size-3.5 inline mr-1" /> Board
               </button>
               <button
+                onClick={() => setView("calendar")}
+                className={`px-2 py-1.5 text-[11px] font-semibold transition-colors ${
+                  view === "calendar" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary/50"
+                }`}
+                title="Calendar View"
+              >
+                <Calendar className="size-3.5 inline mr-1" /> Calendar
+              </button>
+              <button
                 onClick={() => setView("table")}
-                className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                className={`px-2 py-1.5 text-[11px] font-semibold transition-colors ${
                   view === "table" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary/50"
                 }`}
                 title="Table View"
@@ -391,8 +406,19 @@ function TriageDashboard() {
             <MetricsBar leads={leads} />
             {view === "pipeline" ? (
               <div className="glass rounded-2xl border-warm p-4">
-                <PipelineBoard leads={leads} />
+                <PipelineBoard
+                  leads={leads}
+                  pendingReplyIds={pendingReplyIds}
+                  cancellationAlertIds={cancellationAlertIds}
+                />
               </div>
+            ) : view === "calendar" ? (
+              <CalendarGrid
+                leads={leads}
+                onSchedule={(leadId, timestamp) => {
+                  getAvailableSlots({ data: { date: timestamp.split("T")[0] } }).catch(() => {});
+                }}
+              />
             ) : (
               <QueueTable leads={leads} />
             )}
