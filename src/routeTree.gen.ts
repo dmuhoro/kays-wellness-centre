@@ -19,6 +19,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminTriageRouteImport } from './routes/admin/triage'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminDiagnosticsRouteImport } from './routes/admin/diagnostics'
+import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -70,6 +71,11 @@ const AdminDiagnosticsRoute = AdminDiagnosticsRouteImport.update({
   path: '/admin/diagnostics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+  id: '/admin/dashboard',
+  path: '/admin/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/resources': typeof ResourcesRoute
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/diagnostics': typeof AdminDiagnosticsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/triage': typeof AdminTriageRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/resources': typeof ResourcesRoute
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/diagnostics': typeof AdminDiagnosticsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/triage': typeof AdminTriageRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/resources': typeof ResourcesRoute
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/diagnostics': typeof AdminDiagnosticsRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/triage': typeof AdminTriageRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/services'
     | '/terms'
+    | '/admin/dashboard'
     | '/admin/diagnostics'
     | '/admin/login'
     | '/admin/triage'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/services'
     | '/terms'
+    | '/admin/dashboard'
     | '/admin/diagnostics'
     | '/admin/login'
     | '/admin/triage'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/services'
     | '/terms'
+    | '/admin/dashboard'
     | '/admin/diagnostics'
     | '/admin/login'
     | '/admin/triage'
@@ -155,6 +167,7 @@ export interface RootRouteChildren {
   ResourcesRoute: typeof ResourcesRoute
   ServicesRoute: typeof ServicesRoute
   TermsRoute: typeof TermsRoute
+  AdminDashboardRoute: typeof AdminDashboardRoute
   AdminDiagnosticsRoute: typeof AdminDiagnosticsRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminTriageRoute: typeof AdminTriageRoute
@@ -232,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDiagnosticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/dashboard': {
+      id: '/admin/dashboard'
+      path: '/admin/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResourcesRoute: ResourcesRoute,
   ServicesRoute: ServicesRoute,
   TermsRoute: TermsRoute,
+  AdminDashboardRoute: AdminDashboardRoute,
   AdminDiagnosticsRoute: AdminDiagnosticsRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminTriageRoute: AdminTriageRoute,

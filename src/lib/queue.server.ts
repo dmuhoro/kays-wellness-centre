@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { getDb, withDb } from "./db.server";
 import { logger, EVENTS } from "./logger.server";
+import { sendWhatsApp, formatMessage, type MessageType } from "./api/dispatch.server";
 
 export async function ensureQueueSchema(): Promise<boolean> {
   try {
@@ -101,11 +102,56 @@ export async function dispatchNotification({
   eventType: string;
   payload?: Record<string, unknown> | null;
 }): Promise<{ success: boolean; error?: string }> {
-  logger.info("Notification dispatched", {
+  logger.info("Processing notification", {
     event: EVENTS.NOTIFICATION_DISPATCHED,
     queueId: id,
     tenantId,
     leadId,
+    eventType,
+  });
+
+  if (eventType === "lead_created" || eventType.startsWith("msg_")) {
+    const db = await getDb();
+    const rows = await db.unsafe<Array<{ name: string; phone: string }>>(
+      `SELECT name, phone FROM clinic_leads WHERE id = $1`,
+      [leadId],
+    );
+
+    if (rows.length === 0) {
+      logger.warn("Lead not found for notification dispatch", {
+        event: EVENTS.NOTIFICATION_FAILED,
+        queueId: id,
+        leadId,
+      });
+      return { success: false, error: "Lead not found" };
+    }
+
+    const lead = rows[0];
+    if (!lead.phone) {
+      logger.warn("Lead has no phone number, skipping dispatch", {
+        event: EVENTS.NOTIFICATION_FAILED,
+        queueId: id,
+        leadId,
+      });
+      return { success: true, error: "No phone number — skipped" };
+    }
+
+    let messageType: MessageType = "triage_followup";
+    if (eventType.startsWith("msg_")) {
+      const suffix = eventType.replace("msg_", "") as MessageType;
+      if (["confirmation", "triage_followup", "reminder"].includes(suffix)) {
+        messageType = suffix;
+      }
+    }
+
+    const message = formatMessage(messageType, lead.name, lead.phone);
+    const result = await sendWhatsApp(lead.phone, message);
+    return result;
+  }
+
+  logger.info("Notification dispatch skipped — unknown event type", {
+    event: EVENTS.NOTIFICATION_DISPATCHED,
+    queueId: id,
     eventType,
   });
   return { success: true };

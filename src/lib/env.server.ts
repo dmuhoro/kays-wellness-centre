@@ -13,6 +13,9 @@ const envSchema = z.object({
   VERCEL_REGION: z.string().optional(),
   MAX_QUEUE_RETRIES: z.coerce.number().int().min(0).max(10).default(3),
   QUEUE_POLL_INTERVAL_MS: z.coerce.number().int().min(1000).default(5000),
+  WHATSAPP_TOKEN: z.string().optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  ANALYTICS_REVENUE_VALUE: z.coerce.number().default(250),
 });
 
 type Env = z.infer<typeof envSchema>;

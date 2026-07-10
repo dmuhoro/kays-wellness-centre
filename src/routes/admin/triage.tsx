@@ -15,6 +15,9 @@ import {
   Check,
   LogOut,
   Loader2,
+  Columns,
+  Table2,
+  BarChart3,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { TriagePriority } from "@/hooks/clinic-os-types";
@@ -24,6 +27,7 @@ import { useLeads, useUpdateLead, useDeleteLead } from "@/hooks/useLeads";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { NetworkStatus } from "@/components/NetworkStatus";
 import { useAuth } from "@/hooks/useAuth";
+import { PipelineBoard } from "@/components/leads/PipelineBoard";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
 
@@ -42,7 +46,16 @@ const serviceLabels: Record<string, string> = {
   physio: "Physiotherapy & Osteopathy",
 };
 
-const statusOptions = ["pending", "contacted", "scheduled", "converted", "closed"];
+const statusOptions = ["pending", "contacted", "scheduled", "converted", "checked_in", "closed"];
+
+const statusLabel: Record<string, string> = {
+  pending: "New",
+  contacted: "Triage Pending",
+  scheduled: "Scheduled",
+  converted: "Converted",
+  checked_in: "Checked In",
+  closed: "Closed",
+};
 
 const priorityOptions: TriagePriority[] = ["high", "medium", "low"];
 
@@ -224,12 +237,7 @@ const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
                     <InlineSelect
                       value={lead.status}
                       options={statusOptions}
-                      labels={Object.fromEntries(
-                        statusOptions.map((s) => [
-                          s,
-                          s.charAt(0).toUpperCase() + s.slice(1),
-                        ]),
-                      )}
+                      labels={statusLabel}
                       onChange={(v) => updateLead({ id: lead.id, status: v })}
                     />
                   </td>
@@ -263,6 +271,7 @@ const QueueTable = memo(function QueueTable({ leads }: { leads: LeadRow[] }) {
 function TriageDashboard() {
   const { data, isFetching, error } = useLeads();
   const pendingCount = getPending().length;
+  const [view, setView] = useState<"table" | "pipeline">("pipeline");
 
   const leads = data?.source === "db" ? data.rows : [];
   const isOffline = data?.source === "offline";
@@ -284,7 +293,34 @@ function TriageDashboard() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/admin/dashboard"
+              className="size-8 rounded-lg glass flex items-center justify-center hover:bg-secondary transition-colors"
+              title="Operations Dashboard"
+            >
+              <BarChart3 className="size-4 text-muted-foreground" />
+            </Link>
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <button
+                onClick={() => setView("pipeline")}
+                className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                  view === "pipeline" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary/50"
+                }`}
+                title="Pipeline Board"
+              >
+                <Columns className="size-3.5 inline mr-1" /> Board
+              </button>
+              <button
+                onClick={() => setView("table")}
+                className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                  view === "table" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary/50"
+                }`}
+                title="Table View"
+              >
+                <Table2 className="size-3.5 inline mr-1" /> Table
+              </button>
+            </div>
             <NetworkStatus />
             {isFetching && <RefreshCw className="size-4 text-muted-foreground animate-spin" />}
             <Link
@@ -353,7 +389,13 @@ function TriageDashboard() {
         <ErrorBoundary>
           <Suspense fallback={<div className="h-32 animate-pulse rounded-2xl bg-secondary/30" />}>
             <MetricsBar leads={leads} />
-            <QueueTable leads={leads} />
+            {view === "pipeline" ? (
+              <div className="glass rounded-2xl border-warm p-4">
+                <PipelineBoard leads={leads} />
+              </div>
+            ) : (
+              <QueueTable leads={leads} />
+            )}
           </Suspense>
         </ErrorBoundary>
 
