@@ -16,6 +16,8 @@ export type LeadRow = {
   status: string;
   organization_id: string;
   appointment_timestamp: string | null;
+  provider_id: number | null;
+  room_id: number | null;
   created_at: string;
 };
 
@@ -158,7 +160,7 @@ export const fetchLeads = createServerFn({ method: "GET" })
     const db = await getDb();
     const start = Date.now();
     const rows = await db.unsafe<LeadRow[]>(
-      `SELECT id, name, phone, email, service, channel, priority, status, organization_id, appointment_timestamp, created_at
+      `SELECT id, name, phone, email, service, channel, priority, status, organization_id, appointment_timestamp, provider_id, room_id, created_at
        FROM clinic_leads
        WHERE organization_id = $1
        ORDER BY created_at DESC LIMIT 100`,

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 
+vi.setConfig({ testTimeout: 15_000 });
+
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));

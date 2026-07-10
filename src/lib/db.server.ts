@@ -107,6 +107,49 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
           slot_duration_minutes INT NOT NULL DEFAULT 60,
           UNIQUE(organization_id, day_of_week, start_time)
         );
+
+        CREATE TABLE IF NOT EXISTS automation_state (
+          id SERIAL PRIMARY KEY,
+          lead_id INTEGER NOT NULL REFERENCES clinic_leads(id) ON DELETE CASCADE,
+          organization_id UUID NOT NULL REFERENCES organizations(id),
+          current_stage VARCHAR(20) NOT NULL DEFAULT 'UNTOUCHED',
+          last_interaction_at TIMESTAMP WITH TIME ZONE,
+          next_action_scheduled_at TIMESTAMP WITH TIME ZONE,
+          retry_count SMALLINT NOT NULL DEFAULT 0,
+          context_snapshot JSONB DEFAULT '{}',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(lead_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_automation_state_org_stage
+          ON automation_state (organization_id, current_stage);
+        CREATE INDEX IF NOT EXISTS idx_automation_state_next_action
+          ON automation_state (organization_id, next_action_scheduled_at)
+          WHERE next_action_scheduled_at IS NOT NULL;
+
+        CREATE TABLE IF NOT EXISTS clinic_configuration (
+          id SERIAL PRIMARY KEY,
+          organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+          business_hours JSONB NOT NULL DEFAULT '{}',
+          slot_duration_minutes INTEGER NOT NULL DEFAULT 30,
+          triage_timeout_minutes INTEGER NOT NULL DEFAULT 45,
+          custom_keywords JSONB NOT NULL DEFAULT '[]',
+          timezone VARCHAR(50) NOT NULL DEFAULT 'UTC',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(organization_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS resources (
+          id SERIAL PRIMARY KEY,
+          organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          type VARCHAR(20) NOT NULL CHECK (type IN ('PROVIDER', 'ROOM')),
+          status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_resources_org_type
+          ON resources (organization_id, type);
       `);
 
       const hasOrgIdCol = await db.unsafe(`
@@ -120,6 +163,17 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
           CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_org_appt
             ON clinic_leads (organization_id, appointment_timestamp)
             WHERE appointment_timestamp IS NOT NULL;
+        `);
+      }
+
+      const hasProviderCol = await db.unsafe(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'clinic_leads' AND column_name = 'provider_id'
+      `);
+      if (hasProviderCol.length === 0) {
+        await db.unsafe(`
+          ALTER TABLE clinic_leads ADD COLUMN provider_id INTEGER REFERENCES resources(id);
+          ALTER TABLE clinic_leads ADD COLUMN room_id INTEGER REFERENCES resources(id);
         `);
       }
     }

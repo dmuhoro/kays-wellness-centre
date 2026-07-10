@@ -3,6 +3,7 @@ import { eventHandler, getHeader, readBody, setResponseStatus, createError } fro
 import { getDb } from "@/lib/db.server";
 import { logger, EVENTS } from "@/lib/logger.server";
 import { recordInteraction, containsPessimisticKeyword } from "@/lib/api/interactions.server";
+import { getCustomKeywords } from "@/lib/api/clinic-config.server";
 
 function verifySignature(payload: string, signature: string, secret: string): boolean {
   const expected = crypto
@@ -131,7 +132,12 @@ export const POST = eventHandler(async (event) => {
             message: text.slice(0, 500),
           });
 
-          if (containsPessimisticKeyword(text)) {
+          const customKeywords = await getCustomKeywords(orgId);
+          const allKeywords = [...customKeywords];
+          const isCancellation = containsPessimisticKeyword(text) ||
+            allKeywords.some((kw) => text.toLowerCase().includes(kw.toLowerCase()));
+
+          if (isCancellation) {
             await recordInteraction(orgId, lead.id, "cancellation_alert", {
               phone: from,
               message: text.slice(0, 500),
