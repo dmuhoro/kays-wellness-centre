@@ -392,6 +392,51 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         ON message_ledger (organization_id, created_at DESC);
     `);
 
+    await db.unsafe(`
+      CREATE TABLE IF NOT EXISTS reconciliation_log (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        inbound_reference VARCHAR(100) NOT NULL,
+        inbound_amount NUMERIC(12,2) NOT NULL,
+        inbound_phone VARCHAR(30),
+        matched_invoice_id INTEGER REFERENCES invoices(id),
+        matched_payment_id INTEGER REFERENCES payments(id),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'matched', 'auto_paid', 'unmatched')),
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_reconciliation_log_org
+        ON reconciliation_log (organization_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_reconciliation_log_status
+        ON reconciliation_log (organization_id, status);
+
+      CREATE TABLE IF NOT EXISTS org_encryption_keys (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        key_version INTEGER NOT NULL DEFAULT 1,
+        key_hash VARCHAR(128) NOT NULL,
+        active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(organization_id, key_version)
+      );
+
+      CREATE TABLE IF NOT EXISTS channel_health (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        channel VARCHAR(20) NOT NULL CHECK (channel IN ('webhook', 'sms', 'whatsapp')),
+        success_count INTEGER NOT NULL DEFAULT 0,
+        fail_count INTEGER NOT NULL DEFAULT 0,
+        last_success_at TIMESTAMP WITH TIME ZONE,
+        last_failure_at TIMESTAMP WITH TIME ZONE,
+        circuit_open BOOLEAN NOT NULL DEFAULT false,
+        circuit_open_until TIMESTAMP WITH TIME ZONE,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(organization_id, channel)
+      );
+      CREATE INDEX IF NOT EXISTS idx_channel_health_org
+        ON channel_health (organization_id, channel);
+    `);
+
     return true;
   } catch (err) {
     logger.error("Schema setup failed", {
