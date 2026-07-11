@@ -437,6 +437,55 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         ON channel_health (organization_id, channel);
     `);
 
+    const hasTrialCols = await db.unsafe(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'organizations' AND column_name = 'trial_started_at'
+    `);
+    if (hasTrialCols.length === 0) {
+      await db.unsafe(`
+        ALTER TABLE organizations ADD COLUMN trial_started_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE organizations ADD COLUMN trial_ends_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE organizations ADD COLUMN trial_converted_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE organizations ADD COLUMN onboarding_completed_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE organizations ADD COLUMN onboarding_config JSONB DEFAULT '{}';
+      `);
+    }
+
+    await db.unsafe(`
+      CREATE TABLE IF NOT EXISTS product_milestones (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id),
+        milestone_key VARCHAR(60) NOT NULL,
+        milestone_label VARCHAR(120) NOT NULL DEFAULT '',
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(organization_id, milestone_key)
+      );
+      CREATE INDEX IF NOT EXISTS idx_product_milestones_org
+        ON product_milestones (organization_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS checkout_sessions (
+        id VARCHAR(80) PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        target_tier VARCHAR(20) NOT NULL,
+        payment_provider VARCHAR(20) NOT NULL CHECK (payment_provider IN ('mpesa', 'card', 'bank_transfer')),
+        amount_kes INTEGER NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'expired')),
+        external_ref VARCHAR(100),
+        metadata JSONB DEFAULT '{}',
+        expires_at TIMESTAMP WITH TIME ZONE,
+        completed_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_checkout_sessions_org
+        ON checkout_sessions (organization_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_checkout_sessions_ref
+        ON checkout_sessions (external_ref, payment_provider);
+      CREATE INDEX IF NOT EXISTS idx_checkout_sessions_status
+        ON checkout_sessions (status, expires_at);
+    `);
+
     return true;
   } catch (err) {
     logger.error("Schema setup failed", {
