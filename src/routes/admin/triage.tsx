@@ -28,6 +28,7 @@ import { useLeads, useUpdateLead, useDeleteLead } from "@/hooks/useLeads";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { NetworkStatus } from "@/components/NetworkStatus";
 import { useAuth } from "@/hooks/useAuth";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { PipelineBoard } from "@/components/leads/PipelineBoard";
 import { CalendarGrid } from "@/components/leads/CalendarGrid";
 import { usePendingReplies } from "@/hooks/usePipelineActivity";
@@ -336,6 +337,7 @@ function TriageDashboard() {
                 <Table2 className="size-3.5 inline mr-1" /> Table
               </button>
             </div>
+            <ThemeToggle />
             <NetworkStatus />
             {isFetching && <RefreshCw className="size-4 text-muted-foreground animate-spin" />}
             <Link

@@ -23,6 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { NetworkStatus } from "@/components/NetworkStatus";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { canAccessFinance } from "@/lib/permissions.server";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import type { AnalyticsSnapshot } from "@/lib/analytics.server";
 
 export const Route = createFileRoute("/admin/dashboard")({
@@ -369,6 +370,7 @@ function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <NetworkStatus />
             <Link
               to="/admin/triage"

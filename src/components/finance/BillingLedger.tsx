@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { fetchInvoices, fetchPayments, addPayment } from "@/lib/api/billing.server";
 import type { InvoiceRow, PaymentRow } from "@/lib/api/billing.server";
 import { paymentSchema, type PaymentInput } from "@/lib/schemas/client-validators";
+import { formatCurrency, formatDate } from "@/lib/currency";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "text-gray-500 bg-gray-500/10",
@@ -77,12 +78,12 @@ function PaymentForm({
       >
         <h3 className="font-semibold text-sm mb-1">Record Payment</h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Invoice {invoice.invoice_number} — KES {invoice.total_amount.toLocaleString()}
+          Invoice {invoice.invoice_number} — {formatCurrency(invoice.total_amount)}
         </p>
 
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <div>
-            <label className="block text-[11px] font-medium mb-1 text-muted-foreground">Amount (KES)</label>
+            <label className="block text-[11px] font-medium mb-1 text-muted-foreground">Amount</label>
             <input
               type="number"
               min={1}
@@ -140,7 +141,7 @@ function PaymentForm({
               {payMutation.isPending ? (
                 <Loader2 className="size-4 animate-spin mx-auto" />
               ) : (
-                `Record KES ${amount.toLocaleString()}`
+                `Record ${formatCurrency(amount)}`
               )}
             </button>
             <button
@@ -196,8 +197,8 @@ function PaymentHistory({
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs font-semibold">KES {p.amount.toLocaleString()}</div>
-                  <div className="text-[9px] text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</div>
+                  <div className="text-xs font-semibold">{formatCurrency(p.amount)}</div>
+                  <div className="text-[9px] text-muted-foreground">{formatDate(p.created_at)}</div>
                 </div>
               </div>
             );
@@ -261,7 +262,7 @@ export function BillingLedger() {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-semibold">KES {inv.total_amount.toLocaleString()}</span>
+                <span className="text-xs font-semibold">{formatCurrency(inv.total_amount)}</span>
                 <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_COLORS[inv.status] || ""}`}>
                   {inv.status}
                 </span>

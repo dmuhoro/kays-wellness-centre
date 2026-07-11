@@ -81,6 +81,39 @@
   --shadow-card: 0 4px 20px -4px rgba(30, 53, 47, 0.08);
 }
 
+.dark {
+  --background: #141a18;
+  --foreground: #e8ede9;
+  --card: #1a221f;
+  --card-foreground: #e8ede9;
+  --popover: #1a221f;
+  --popover-foreground: #e8ede9;
+  --primary: #d4a373;
+  --primary-foreground: #141a18;
+  --primary-glow: #c85a32;
+  --secondary: #222b27;
+  --secondary-foreground: #e8ede9;
+  --muted: #1e2723;
+  --muted-foreground: #8e9f97;
+  --accent: #c85a32;
+  --accent-foreground: #fcfdfd;
+  --gold: #d4a373;
+  --terracotta: #c85a32;
+  --olive: #4f6d63;
+  --sage: #4f6d63;
+  --mint: #2a3a33;
+  --destructive: #b33d3d;
+  --destructive-foreground: #fcfdfd;
+  --border: #2d3833;
+  --input: #2d3833;
+  --ring: #d4a373;
+  --gradient-hero: linear-gradient(135deg, #141a18 0%, #2a3a33 55%, #c85a32 100%);
+  --gradient-glass: linear-gradient(135deg, rgba(26, 34, 31, 0.8), rgba(26, 34, 31, 0.5));
+  --shadow-elegant: 0 20px 50px -20px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 60px rgba(200, 90, 50, 0.2);
+  --shadow-card: 0 4px 20px -4px rgba(0, 0, 0, 0.3);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

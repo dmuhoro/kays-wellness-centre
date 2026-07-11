@@ -13,6 +13,8 @@ import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { SonnerToaster } from "@/components/ui/sonner-toaster";
+import { ThemeContext, useThemeState } from "@/hooks/use-theme";
+import { CommandPalette } from "@/components/CommandPalette";
 
 function NotFoundComponent() {
   return (
@@ -132,6 +134,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              (function(){var t=localStorage.getItem("kwc-theme");if(!t){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}if(t==="dark"){document.documentElement.classList.add("dark")}})();
               if ("serviceWorker" in navigator) {
                 window.addEventListener("load", () => {
                   navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -147,17 +150,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const themeCtx = useThemeState();
   return (
-    <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1 pt-20">
-          <Outlet />
-        </main>
-        <Footer />
-        <WhatsAppButton />
-        <SonnerToaster />
-      </div>
-    </QueryClientProvider>
+    <ThemeContext.Provider value={themeCtx}>
+      <QueryClientProvider client={queryClient}>
+        <div className="min-h-screen flex flex-col">
+          <Navbar />
+          <main className="flex-1 pt-20">
+            <Outlet />
+          </main>
+          <Footer />
+          <WhatsAppButton />
+          <SonnerToaster />
+          <CommandPalette />
+        </div>
+      </QueryClientProvider>
+    </ThemeContext.Provider>
   );
 }
