@@ -1,4 +1,5 @@
 import process from "node:process";
+import crypto from "node:crypto";
 import { isProduction } from "./env.server";
 
 export const EVENTS = {
@@ -54,6 +55,8 @@ export const EVENTS = {
   PERMISSION_DENIED: "PERMISSION_DENIED",
   DB_HYDRATE_STARTED: "DB_HYDRATE_STARTED",
   DB_HYDRATE_COMPLETED: "DB_HYDRATE_COMPLETED",
+  LOCK_ACQUIRED: "LOCK_ACQUIRED",
+  LOCK_FAILED: "LOCK_FAILED",
 } as const;
 
 type EventType = (typeof EVENTS)[keyof typeof EVENTS];
@@ -61,6 +64,11 @@ type EventType = (typeof EVENTS)[keyof typeof EVENTS];
 export interface LogEntry {
   level: "debug" | "info" | "warn" | "error";
   message: string;
+  timestamp: string;
+  traceId?: string;
+  orgId?: string;
+  userId?: number;
+  executionTimeMs?: number;
   event?: EventType;
   request_id?: string;
   tenant_id?: string;
@@ -89,42 +97,69 @@ function makeEntry(
   message: string,
   meta?: Partial<LogEntry>,
 ): LogEntry {
-  return {
+  const base: LogEntry = {
     level,
     message,
     timestamp: new Date().toISOString(),
     ...(meta ? redact(meta as Record<string, unknown>) : {}),
   };
+  if (meta?.request_id) base.traceId = meta.request_id;
+  if (meta?.tenant_id) base.orgId = meta.tenant_id;
+  return base;
 }
 
 function write(entry: LogEntry): void {
+  const envelope: Record<string, unknown> = {
+    timestamp: entry.timestamp,
+    level: entry.level,
+    message: entry.message,
+  };
+  if (entry.traceId) envelope.traceId = entry.traceId;
+  if (entry.orgId) envelope.orgId = entry.orgId;
+  if (entry.userId !== undefined) envelope.userId = entry.userId;
+  if (entry.event) envelope.event = entry.event;
+  if (entry.executionTimeMs !== undefined) envelope.executionTimeMs = entry.executionTimeMs;
+  if (entry.duration_ms !== undefined) envelope.duration_ms = entry.duration_ms;
+
+  const rest = { ...entry };
+  delete rest.level;
+  delete rest.message;
+  delete rest.event;
+  delete rest.request_id;
+  delete rest.tenant_id;
+  delete rest.duration_ms;
+  delete rest.timestamp;
+  delete rest.traceId;
+  delete rest.orgId;
+  delete rest.userId;
+  delete rest.executionTimeMs;
+  if (Object.keys(rest).length > 0) envelope.meta = rest;
+
   if (isProduction()) {
-    process.stdout.write(JSON.stringify(entry) + "\n");
+    process.stdout.write(JSON.stringify(envelope) + "\n");
   } else {
     const prefix = [
       `[${entry.level.toUpperCase()}]`,
       entry.event ? `[${entry.event}]` : "",
-      entry.request_id ? `[req:${entry.request_id}]` : "",
-      entry.tenant_id ? `[org:${entry.tenant_id.slice(0, 8)}]` : "",
+      entry.traceId ? `[trace:${entry.traceId.slice(0, 8)}]` : "",
+      entry.orgId ? `[org:${entry.orgId.slice(0, 8)}]` : "",
     ]
       .filter(Boolean)
       .join(" ");
-    const duration = entry.duration_ms != null ? ` (${entry.duration_ms}ms)` : "";
-    const rest = { ...entry };
-    delete rest.level;
-    delete rest.message;
-    delete rest.event;
-    delete rest.request_id;
-    delete rest.tenant_id;
-    delete rest.duration_ms;
-    delete rest.timestamp;
+    const duration = entry.executionTimeMs != null ? ` (${entry.executionTimeMs}ms)` : entry.duration_ms != null ? ` (${entry.duration_ms}ms)` : "";
     const extra = Object.keys(rest).length ? ` ${JSON.stringify(rest)}` : "";
-    console.log(`${prefix} ${message}${duration}${extra}`);
+    console.log(`${prefix} ${entry.message}${duration}${extra}`);
   }
 }
 
-export function createLogger(request_id?: string, tenant_id?: string) {
-  const base = { request_id, tenant_id };
+export function startTimer(): { end(): number } {
+  const start = Date.now();
+  return { end: () => Date.now() - start };
+}
+
+export function createLogger(request_id?: string, tenant_id?: string, user_id?: number) {
+  const base: Partial<LogEntry> = { request_id, tenant_id };
+  if (user_id !== undefined) base.userId = user_id;
   return {
     debug: (msg: string, meta?: Partial<LogEntry>) =>
       write(makeEntry("debug", msg, { ...base, ...meta })),
@@ -135,7 +170,11 @@ export function createLogger(request_id?: string, tenant_id?: string) {
     error: (msg: string, meta?: Partial<LogEntry>) =>
       write(makeEntry("error", msg, { ...base, ...meta })),
     child: (extra: Partial<LogEntry>) =>
-      createLogger(extra.request_id || request_id, extra.tenant_id || tenant_id),
+      createLogger(
+        extra.request_id || request_id,
+        extra.tenant_id || tenant_id,
+        extra.userId ?? user_id,
+      ),
   };
 }
 

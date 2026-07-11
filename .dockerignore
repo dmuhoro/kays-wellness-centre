@@ -1,0 +1,17 @@
+node_modules
+.git
+.gitignore
+*.md
+.env*
+dist
+.cache
+.vite
+__tests__
+tests
+src/__tests__
+tsconfig.json
+vitest.config.ts
+.eslintrc*
+.prettierrc*
+prettier.config.*
+bun.lock

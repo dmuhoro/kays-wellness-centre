@@ -3,9 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockDb = {
   unsafe: vi.fn(),
 };
+const mockGetConcurrentLock = vi.fn(() => Promise.resolve(true));
+const mockReleaseConcurrentLock = vi.fn(() => Promise.resolve());
 vi.mock("@/lib/db.server", () => ({
   getDb: vi.fn(() => mockDb),
   isDbAvailable: vi.fn(() => true),
+  getConcurrentLock: mockGetConcurrentLock,
+  releaseConcurrentLock: mockReleaseConcurrentLock,
 }));
 
 vi.mock("@/lib/tenant.server", () => ({
@@ -68,16 +72,16 @@ describe("Payment Recording", () => {
 
   it("recordPayment creates payment with sequential receipt number", async () => {
     mockDb.unsafe
-      .mockResolvedValueOnce([{ m: null }])
-      .mockResolvedValueOnce([{
-        id: 1, invoice_id: 1, organization_id: "org-1",
-        amount: 2500, method: "cash", receipt_number: "KWC-2026-00001",
-        notes: null, created_at: new Date().toISOString(),
-      }])
       .mockResolvedValueOnce([{
         id: 1, lead_id: 1, organization_id: "org-1",
         invoice_number: "INV-2026-00001", total_amount: 2500, status: "issued",
         issued_at: new Date().toISOString(), paid_at: null, due_at: null,
+        notes: null, created_at: new Date().toISOString(),
+      }])
+      .mockResolvedValueOnce([{ m: null }])
+      .mockResolvedValueOnce([{
+        id: 1, invoice_id: 1, organization_id: "org-1",
+        amount: 2500, method: "cash", receipt_number: "KWC-2026-00001",
         notes: null, created_at: new Date().toISOString(),
       }])
       .mockResolvedValueOnce([{ total: 2500 }])
@@ -92,16 +96,16 @@ describe("Payment Recording", () => {
 
   it("recordPayment marks invoice paid when fully paid", async () => {
     mockDb.unsafe
-      .mockResolvedValueOnce([{ m: null }])
-      .mockResolvedValueOnce([{
-        id: 1, invoice_id: 1, organization_id: "org-1",
-        amount: 2500, method: "mobile_money", receipt_number: "KWC-2026-00001",
-        notes: null, created_at: new Date().toISOString(),
-      }])
       .mockResolvedValueOnce([{
         id: 1, lead_id: 1, organization_id: "org-1",
         invoice_number: "INV-2026-00001", total_amount: 2500, status: "issued",
         issued_at: new Date().toISOString(), paid_at: null, due_at: null,
+        notes: null, created_at: new Date().toISOString(),
+      }])
+      .mockResolvedValueOnce([{ m: null }])
+      .mockResolvedValueOnce([{
+        id: 1, invoice_id: 1, organization_id: "org-1",
+        amount: 2500, method: "mobile_money", receipt_number: "KWC-2026-00001",
         notes: null, created_at: new Date().toISOString(),
       }])
       .mockResolvedValueOnce([{ total: 2500 }])
@@ -114,17 +118,17 @@ describe("Payment Recording", () => {
 
   it("recordPayment does not mark invoice paid when partial", async () => {
     mockDb.unsafe
-      .mockResolvedValueOnce([{ m: null }])
-      .mockResolvedValueOnce([{
-        id: 1, invoice_id: 1, organization_id: "org-1",
-        amount: 1000, method: "card", receipt_number: "KWC-2026-00001",
-        notes: "Partial payment", created_at: new Date().toISOString(),
-      }])
       .mockResolvedValueOnce([{
         id: 1, lead_id: 1, organization_id: "org-1",
         invoice_number: "INV-2026-00001", total_amount: 5000, status: "issued",
         issued_at: new Date().toISOString(), paid_at: null, due_at: null,
         notes: null, created_at: new Date().toISOString(),
+      }])
+      .mockResolvedValueOnce([{ m: null }])
+      .mockResolvedValueOnce([{
+        id: 1, invoice_id: 1, organization_id: "org-1",
+        amount: 1000, method: "card", receipt_number: "KWC-2026-00001",
+        notes: "Partial payment", created_at: new Date().toISOString(),
       }])
       .mockResolvedValueOnce([{ total: 1000 }]);
 

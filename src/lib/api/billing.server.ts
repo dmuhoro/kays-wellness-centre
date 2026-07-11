@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { getDb, isDbAvailable } from "../db.server";
+import { getDb, isDbAvailable, getConcurrentLock, releaseConcurrentLock } from "../db.server";
 import { requireOrg } from "../tenant.server";
 import { logger, EVENTS } from "../logger.server";
 import { recordAudit } from "../audit.server";
@@ -76,41 +76,51 @@ export async function generateInvoice(
   dueAt?: string,
 ): Promise<InvoiceRow> {
   const db = await getDb();
-  const seq = await nextInvoiceSeq(orgId);
-  const invoiceNumber = formatInvoiceNumber(orgId, seq);
+  const lockKey = `invoice_seq:${orgId}`;
+  const acquired = await getConcurrentLock(lockKey);
+  if (!acquired) {
+    throw new Error("Could not acquire lock for invoice generation");
+  }
 
-  const rows = await db.unsafe<InvoiceRow[]>(
-    `INSERT INTO invoices (lead_id, organization_id, invoice_number, total_amount, status, due_at)
-     VALUES ($1, $2, $3, $4, 'issued', $5)
-     RETURNING *`,
-    [leadId, orgId, invoiceNumber, amount, dueAt ?? null],
-  );
+  try {
+    const seq = await nextInvoiceSeq(orgId);
+    const invoiceNumber = formatInvoiceNumber(orgId, seq);
 
-  const session = getSession();
-  recordAudit({
-    orgId,
-    userId: session?.userId ?? null,
-    actionType: "INVOICE_UPDATED",
-    targetType: "invoice",
-    targetId: String(rows[0].id),
-    metadata: { invoiceNumber, amount, leadId },
-  });
+    const rows = await db.unsafe<InvoiceRow[]>(
+      `INSERT INTO invoices (lead_id, organization_id, invoice_number, total_amount, status, due_at)
+       VALUES ($1, $2, $3, $4, 'issued', $5)
+       RETURNING *`,
+      [leadId, orgId, invoiceNumber, amount, dueAt ?? null],
+    );
 
-  publishEvent(orgId, "invoice:created", {
-    invoiceId: rows[0].id,
-    invoiceNumber,
-    amount,
-    leadId,
-  }).catch(() => {});
+    const session = getSession();
+    recordAudit({
+      orgId,
+      userId: session?.userId ?? null,
+      actionType: "INVOICE_UPDATED",
+      targetType: "invoice",
+      targetId: String(rows[0].id),
+      metadata: { invoiceNumber, amount, leadId },
+    });
 
-  logger.info("Invoice generated", {
-    event: EVENTS.INVOICE_GENERATED,
-    leadId,
-    invoiceNumber,
-    amount,
-  });
+    publishEvent(orgId, "invoice:created", {
+      invoiceId: rows[0].id,
+      invoiceNumber,
+      amount,
+      leadId,
+    }).catch(() => {});
 
-  return rows[0];
+    logger.info("Invoice generated", {
+      event: EVENTS.INVOICE_GENERATED,
+      leadId,
+      invoiceNumber,
+      amount,
+    });
+
+    return rows[0];
+  } finally {
+    await releaseConcurrentLock(lockKey);
+  }
 }
 
 export async function recordPayment(
@@ -121,51 +131,66 @@ export async function recordPayment(
   notes?: string,
 ): Promise<{ payment: PaymentRow; invoiceFullyPaid: boolean }> {
   const db = await getDb();
-  const seq = await nextReceiptSeq(orgId);
-  const receiptNumber = formatReceiptNumber(orgId, seq);
-
-  const paymentRows = await db.unsafe<PaymentRow[]>(
-    `INSERT INTO payments (invoice_id, organization_id, amount, method, receipt_number, notes)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
-    [invoiceId, orgId, amount, method, receiptNumber, notes ?? null],
-  );
-  const payment = paymentRows[0];
-
-  const invRows = await db.unsafe<InvoiceRow[]>(
-    `SELECT * FROM invoices WHERE id = $1 AND organization_id = $2`,
-    [invoiceId, orgId],
-  );
-  const invoice = invRows[0];
-
-  const paidRows = await db.unsafe<Array<{ total: number }>>(
-    `SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE invoice_id = $1`,
-    [invoiceId],
-  );
-  const totalPaid = paidRows[0]?.total ?? 0;
-  const fullyPaid = totalPaid >= invoice.total_amount;
-
-  if (fullyPaid) {
-    await db.unsafe(
-      `UPDATE invoices SET status = 'paid', paid_at = CURRENT_TIMESTAMP WHERE id = $1`,
-      [invoiceId],
-    );
-    logger.info("Invoice fully paid", {
-      event: EVENTS.INVOICE_PAID,
-      invoiceId,
-      invoiceNumber: invoice.invoice_number,
-    });
+  const lockKey = `payment:${orgId}:${invoiceId}`;
+  const acquired = await getConcurrentLock(lockKey);
+  if (!acquired) {
+    throw new Error("Could not acquire lock for payment recording");
   }
 
-  logger.info("Payment recorded", {
-    event: EVENTS.PAYMENT_RECEIVED,
-    invoiceId,
-    amount,
-    method,
-    receiptNumber,
-  });
+  try {
+    const invRows = await db.unsafe<InvoiceRow[]>(
+      `SELECT * FROM invoices WHERE id = $1 AND organization_id = $2 FOR UPDATE`,
+      [invoiceId, orgId],
+    );
+    const invoice = invRows[0];
+    if (!invoice) throw new Error("Invoice not found");
 
-  return { payment, invoiceFullyPaid: fullyPaid };
+    if (invoice.status === "paid") {
+      throw new Error("Invoice is already fully paid");
+    }
+
+    const seq = await nextReceiptSeq(orgId);
+    const receiptNumber = formatReceiptNumber(orgId, seq);
+
+    const paymentRows = await db.unsafe<PaymentRow[]>(
+      `INSERT INTO payments (invoice_id, organization_id, amount, method, receipt_number, notes)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [invoiceId, orgId, amount, method, receiptNumber, notes ?? null],
+    );
+    const payment = paymentRows[0];
+
+    const paidRows = await db.unsafe<Array<{ total: number }>>(
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE invoice_id = $1`,
+      [invoiceId],
+    );
+    const totalPaid = paidRows[0]?.total ?? 0;
+    const fullyPaid = totalPaid >= invoice.total_amount;
+
+    if (fullyPaid) {
+      await db.unsafe(
+        `UPDATE invoices SET status = 'paid', paid_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [invoiceId],
+      );
+      logger.info("Invoice fully paid", {
+        event: EVENTS.INVOICE_PAID,
+        invoiceId,
+        invoiceNumber: invoice.invoice_number,
+      });
+    }
+
+    logger.info("Payment recorded", {
+      event: EVENTS.PAYMENT_RECEIVED,
+      invoiceId,
+      amount,
+      method,
+      receiptNumber,
+    });
+
+    return { payment, invoiceFullyPaid: fullyPaid };
+  } finally {
+    await releaseConcurrentLock(lockKey);
+  }
 }
 
 export async function getInvoices(orgId: string): Promise<InvoiceRow[]> {

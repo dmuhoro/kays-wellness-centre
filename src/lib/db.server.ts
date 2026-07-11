@@ -58,6 +58,41 @@ export async function withDb<T>(
   }
 }
 
+export async function getConcurrentLock(
+  key: string,
+  timeoutMs = 3_000,
+): Promise<boolean> {
+  const db = await getDb();
+  try {
+    const result = await db.unsafe<Array<{ locked: boolean }>>(
+      `SELECT pg_try_advisory_lock(hashtext($1)) AS locked`,
+      [key],
+    );
+    if (!result[0]?.locked) {
+      logger.warn("Concurrent lock acquisition failed", {
+        event: EVENTS.RESOURCE_CONFLICT,
+        lockKey: key,
+      });
+      return false;
+    }
+    setTimeout(async () => {
+      try {
+        await db.unsafe(`SELECT pg_advisory_unlock(hashtext($1))`, [key]);
+      } catch {
+        // Best-effort unlock
+      }
+    }, timeoutMs);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function releaseConcurrentLock(key: string): Promise<void> {
+  const db = await getDb();
+  await db.unsafe(`SELECT pg_advisory_unlock(hashtext($1))`, [key]).catch(() => {});
+}
+
 export async function ensureSchema(multiTenant = false): Promise<boolean> {
   try {
     const db = await getDb();
@@ -259,6 +294,21 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         ON audit_logs (tenant_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_audit_logs_action
         ON audit_logs (tenant_id, action_type);
+    `);
+
+    await db.unsafe(`
+      CREATE TABLE IF NOT EXISTS slot_reservations (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        appointment_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+        provider_id INTEGER REFERENCES resources(id),
+        room_id INTEGER REFERENCES resources(id),
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(organization_id, appointment_timestamp)
+      );
+      CREATE INDEX IF NOT EXISTS idx_slot_reservations_expires
+        ON slot_reservations (expires_at);
     `);
 
     await db.unsafe(`

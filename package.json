@@ -16,7 +16,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "db:hydrate": "tsx src/scripts/db-hydrate.ts"
+    "db:hydrate": "tsx src/scripts/db-hydrate.ts",
+    "db:backup": "bash scripts/backup-db.sh",
+    "db:restore-test": "tsx src/scripts/db-restore-test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

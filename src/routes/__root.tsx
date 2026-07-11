@@ -15,6 +15,7 @@ import { WhatsAppButton } from "@/components/site/WhatsAppButton";
 import { SonnerToaster } from "@/components/ui/sonner-toaster";
 import { ThemeContext, useThemeState } from "@/hooks/use-theme";
 import { CommandPalette } from "@/components/CommandPalette";
+import { logger, startTimer } from "@/lib/logger.server";
 
 function NotFoundComponent() {
   return (
@@ -39,7 +40,12 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  const timer = startTimer();
+  logger.error("Root error boundary caught", {
+    error: error.message,
+    stack: error.stack?.slice(0, 500),
+    executionTimeMs: timer.end(),
+  });
   const router = useRouter();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
