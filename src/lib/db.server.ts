@@ -261,6 +261,18 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         ON audit_logs (tenant_id, action_type);
     `);
 
+    await db.unsafe(`
+      CREATE TABLE IF NOT EXISTS live_events (
+        id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        event_type VARCHAR(50) NOT NULL,
+        payload JSONB DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_live_events_tenant
+        ON live_events (tenant_id, id);
+    `);
+
     return true;
   } catch (err) {
     logger.error("Schema setup failed", {

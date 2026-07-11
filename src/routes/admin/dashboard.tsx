@@ -22,6 +22,7 @@ import { getAnalytics } from "@/lib/api/analytics.server";
 import { useAuth } from "@/hooks/useAuth";
 import { NetworkStatus } from "@/components/NetworkStatus";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { canAccessFinance } from "@/lib/permissions.server";
 import type { AnalyticsSnapshot } from "@/lib/analytics.server";
 
 export const Route = createFileRoute("/admin/dashboard")({
@@ -125,7 +126,7 @@ function StageBreakdownBar({
   );
 }
 
-function DashboardContent() {
+function DashboardContent({ role }: { role: string | null }) {
   const [analytics, setAnalytics] = useState<AnalyticsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -219,8 +220,8 @@ function DashboardContent() {
         />
       </div>
 
-      {/* Financial KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Financial KPIs — owners/admin only */}
+      {canAccessFinance(role) && (<div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           icon={Receipt}
           label="Accounts Receivable"
@@ -261,9 +262,9 @@ function DashboardContent() {
           color="text-sky-500"
           accent="bg-sky-500/10"
         />
-      </div>
+      </div>)}
 
-      {analytics.revenuePerResource.length > 0 && (
+      {canAccessFinance(role) && analytics.revenuePerResource.length > 0 && (
         <div className="glass rounded-2xl border-warm p-5 animate-fade-up">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
             <BarChart3 className="size-4 text-primary" /> Revenue Per Resource
@@ -329,7 +330,7 @@ function DashboardContent() {
 
 function DashboardPage() {
   const navigate = useNavigate();
-  const { loading, authenticated } = useAuth();
+  const { loading, authenticated, role } = useAuth();
 
   useEffect(() => {
     if (!loading && !authenticated) {
@@ -386,7 +387,7 @@ function DashboardPage() {
           }
         >
           <ErrorBoundary>
-            <DashboardContent />
+            <DashboardContent role={role} />
           </ErrorBoundary>
         </Suspense>
       </div>

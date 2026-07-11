@@ -6,6 +6,8 @@ import { requireOrg } from "../tenant.server";
 import { enqueueNotification } from "../queue.server";
 import { recordAudit } from "../audit.server";
 import { getSession } from "../session.server";
+import { publishEvent } from "../event-bus.server";
+import { requireRole, ROLES } from "../permissions.server";
 
 export type LeadRow = {
   id: number;
@@ -229,6 +231,11 @@ export const updateLead = createServerFn({ method: "POST" })
       });
     }
 
+    publishEvent(orgId, "lead:updated", {
+      leadId: data.id,
+      status: data.status,
+    }).catch(() => {});
+
     log.info("Lead updated", {
       event: EVENTS.LEAD_UPDATED,
       leadId: data.id,
@@ -241,6 +248,11 @@ export const deleteLead = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     if (!isDbAvailable()) {
       return { status: "db_unavailable" as const };
+    }
+    try {
+      requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER);
+    } catch {
+      return { status: "forbidden" as const };
     }
     const { orgId, log } = requireOrg();
     const session = getSession();

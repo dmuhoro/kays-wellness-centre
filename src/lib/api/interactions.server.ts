@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb, isDbAvailable } from "../db.server";
 import { requireOrg } from "../tenant.server";
 import { logger, EVENTS } from "../logger.server";
+import { publishEvent } from "../event-bus.server";
 
 export interface InteractionRow {
   id: number;
@@ -31,6 +32,10 @@ export async function recordInteraction(
      VALUES ($1, $2, $3, $4) RETURNING id, lead_id, event_type, metadata, created_at`,
     [leadId, orgId, eventType, JSON.stringify(metadata)],
   );
+  publishEvent(orgId, "interaction:created", {
+    leadId,
+    eventType,
+  }).catch(() => {});
   return result[0] as InteractionRow;
 }
 

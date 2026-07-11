@@ -5,6 +5,8 @@ import { requireOrg } from "../tenant.server";
 import { logger, EVENTS } from "../logger.server";
 import { recordAudit } from "../audit.server";
 import { getSession } from "../session.server";
+import { publishEvent } from "../event-bus.server";
+import { requireRole, canAccessFinance, ROLES } from "../permissions.server";
 
 export interface InvoiceRow {
   id: number;
@@ -93,6 +95,13 @@ export async function generateInvoice(
     targetId: String(rows[0].id),
     metadata: { invoiceNumber, amount, leadId },
   });
+
+  publishEvent(orgId, "invoice:created", {
+    invoiceId: rows[0].id,
+    invoiceNumber,
+    amount,
+    leadId,
+  }).catch(() => {});
 
   logger.info("Invoice generated", {
     event: EVENTS.INVOICE_GENERATED,
@@ -190,6 +199,7 @@ export const generateInvoiceForCheckedIn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     if (!isDbAvailable()) return { status: "db_unavailable" as const };
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER); } catch { return { status: "forbidden" as const }; }
     const { orgId } = requireOrg();
     const db = await getDb();
 
@@ -215,6 +225,7 @@ export const generateInvoiceForCheckedIn = createServerFn({ method: "POST" })
 export const fetchInvoices = createServerFn({ method: "GET" })
   .handler(async () => {
     if (!isDbAvailable()) return { status: "db_unavailable" as const, invoices: [] };
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER); } catch { return { status: "forbidden" as const, invoices: [] }; }
     const { orgId } = requireOrg();
     const invoices = await getInvoices(orgId);
     return { status: "ok", invoices };
@@ -240,7 +251,13 @@ export const addPayment = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     if (!isDbAvailable()) return { status: "db_unavailable" as const };
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER); } catch { return { status: "forbidden" as const }; }
     const { orgId } = requireOrg();
     const result = await recordPayment(orgId, data.invoiceId, data.amount, data.method, data.notes);
+    publishEvent(orgId, "payment:recorded", {
+      invoiceId: data.invoiceId,
+      amount: data.amount,
+      method: data.method,
+    }).catch(() => {});
     return { status: "ok", ...result };
   });

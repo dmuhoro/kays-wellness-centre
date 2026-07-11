@@ -4,6 +4,8 @@ import { getDb } from "@/lib/db.server";
 import { logger, EVENTS } from "@/lib/logger.server";
 import { recordInteraction, containsPessimisticKeyword } from "@/lib/api/interactions.server";
 import { getCustomKeywords } from "@/lib/api/clinic-config.server";
+import { storeFile } from "@/lib/storage.server";
+import { publishEvent } from "@/lib/event-bus.server";
 
 function verifySignature(payload: string, signature: string, secret: string): boolean {
   const expected = crypto
@@ -31,6 +33,53 @@ async function findLeadByPhone(
     [orgId, `%${cleanPhone.slice(-9)}`],
   );
   return rows.length > 0 ? rows[0] : null;
+}
+
+const MEDIA_TYPES = new Set(["image", "document", "audio", "video", "sticker"]);
+
+interface MediaInfo {
+  type: string;
+  mediaId: string;
+  mimeType: string;
+  caption: string;
+  filename: string;
+}
+
+function extractMedia(msg: Record<string, unknown>): MediaInfo | null {
+  for (const mediaType of MEDIA_TYPES) {
+    const mediaField = msg[mediaType] as Record<string, unknown> | undefined;
+    if (mediaField) {
+      return {
+        type: mediaType,
+        mediaId: (mediaField.id as string) || "",
+        mimeType: (mediaField.mime_type as string) || "application/octet-stream",
+        caption: (mediaField.caption as string) || "",
+        filename: (mediaField.filename as string) || `${mediaType}_${Date.now()}`,
+      };
+    }
+  }
+  return null;
+}
+
+async function downloadWhatsAppMedia(mediaId: string): Promise<Buffer | null> {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  if (!token) return null;
+  try {
+    const resp = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!resp.ok) return null;
+    const data = (await resp.json()) as { url?: string } | null;
+    if (!data?.url) return null;
+    const mediaResp = await fetch(data.url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!mediaResp.ok) return null;
+    const buffer = Buffer.from(await mediaResp.arrayBuffer());
+    return buffer;
+  } catch {
+    return null;
+  }
 }
 
 async function lookupOrgFromPhone(phone: string): Promise<string | null> {
@@ -103,9 +152,13 @@ export const POST = eventHandler(async (event) => {
 
       for (const msg of messages) {
         const from = msg?.from as string | undefined;
-        const text = ((msg?.text as Record<string, unknown> | undefined)?.body as string | undefined) || "";
+        if (!from) continue;
 
-        if (!from || !text) continue;
+        const msgType = (msg?.type as string) || "text";
+        const text = ((msg?.text as Record<string, unknown> | undefined)?.body as string | undefined) || "";
+        const mediaInfo = extractMedia(msg);
+
+        if (msgType === "text" && !text) continue;
 
         const orgId = await lookupOrgFromPhone(from);
         if (!orgId) {
@@ -117,39 +170,89 @@ export const POST = eventHandler(async (event) => {
         }
 
         const lead = await findLeadByPhone(orgId, from);
+        const leadId = lead?.id ?? 0;
         const metadata: Record<string, unknown> = {
           phone: from,
-          message: text.slice(0, 500),
           direction: "inbound",
+          msgType,
         };
 
-        if (lead) {
-          metadata.lead_id = lead.id;
-          metadata.lead_name = lead.name;
+        let storedFile: { path: string; originalName: string } | null = null;
 
-          await recordInteraction(orgId, lead.id, "message_received", {
-            phone: from,
-            message: text.slice(0, 500),
-          });
+        if (mediaInfo) {
+          metadata.mediaType = mediaInfo.type;
+          metadata.mimeType = mediaInfo.mimeType;
+          metadata.caption = mediaInfo.caption.slice(0, 500);
+          metadata.mediaId = mediaInfo.mediaId;
 
-          const customKeywords = await getCustomKeywords(orgId);
-          const allKeywords = [...customKeywords];
-          const isCancellation = containsPessimisticKeyword(text) ||
-            allKeywords.some((kw) => text.toLowerCase().includes(kw.toLowerCase()));
+          const mediaBuffer = await downloadWhatsAppMedia(mediaInfo.mediaId);
+          if (mediaBuffer) {
+            try {
+              storedFile = await storeFile(orgId, mediaInfo.type === "document" ? "document" : "image", mediaInfo.filename, mediaBuffer);
+              metadata.storedPath = storedFile.path;
+            } catch {
+              metadata.storeFailed = true;
+            }
+          }
 
-          if (isCancellation) {
-            await recordInteraction(orgId, lead.id, "cancellation_alert", {
-              phone: from,
-              message: text.slice(0, 500),
-              previous_status: lead.status,
-            });
-            logger.info("Cancellation alert recorded", {
-              event: EVENTS.LEAD_FLAGGED,
-              leadId: lead.id,
-            });
+          await recordInteraction(orgId, leadId, "media_shared", metadata);
+
+          if (mediaInfo.caption && lead) {
+            const captionText = mediaInfo.caption;
+            const customKeywords = await getCustomKeywords(orgId);
+            const isCancellation = containsPessimisticKeyword(captionText) ||
+              customKeywords.some((kw) => captionText.toLowerCase().includes(kw.toLowerCase()));
+            if (isCancellation) {
+              await recordInteraction(orgId, lead.id, "cancellation_alert", {
+                phone: from,
+                message: captionText.slice(0, 500),
+                previous_status: lead.status,
+              });
+              logger.info("Cancellation alert via media caption", {
+                event: EVENTS.LEAD_FLAGGED,
+                leadId: lead.id,
+              });
+            }
           }
         } else {
-          await recordInteraction(orgId, 0, "message_received", metadata);
+          metadata.message = text.slice(0, 500);
+
+          if (lead) {
+            metadata.lead_id = lead.id;
+            metadata.lead_name = lead.name;
+
+            await recordInteraction(orgId, lead.id, "message_received", {
+              phone: from,
+              message: text.slice(0, 500),
+            });
+
+            const customKeywords = await getCustomKeywords(orgId);
+            const allKeywords = [...customKeywords];
+            const isCancellation = containsPessimisticKeyword(text) ||
+              allKeywords.some((kw) => text.toLowerCase().includes(kw.toLowerCase()));
+
+            if (isCancellation) {
+              await recordInteraction(orgId, lead.id, "cancellation_alert", {
+                phone: from,
+                message: text.slice(0, 500),
+                previous_status: lead.status,
+              });
+              logger.info("Cancellation alert recorded", {
+                event: EVENTS.LEAD_FLAGGED,
+                leadId: lead.id,
+              });
+            }
+          } else {
+            await recordInteraction(orgId, 0, "message_received", metadata);
+          }
+        }
+
+        if (orgId) {
+          publishEvent(orgId, "interaction:created", {
+            leadId: leadId,
+            eventType: mediaInfo ? "media_shared" : "message_received",
+            from: from.slice(0, 6) + "****",
+          }).catch(() => {});
         }
 
         processedCount++;
@@ -157,6 +260,7 @@ export const POST = eventHandler(async (event) => {
           event: EVENTS.WHATSAPP_INBOUND,
           matched: !!lead,
           leadId: lead?.id,
+          msgType,
         });
       }
     }

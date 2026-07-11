@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { ArrowLeft, Download, FileSpreadsheet, Loader2, AlertCircle, Shield } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Download, FileSpreadsheet, Loader2, AlertCircle, Shield, Lock } from "lucide-react";
 import { generateExport } from "@/lib/exports.server";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/admin/settings/data")({
   head: () => ({
@@ -21,11 +22,44 @@ const DATASETS = [
 ];
 
 function DataExportPage() {
+  const navigate = useNavigate();
+  const { loading: authLoading, authenticated, role } = useAuth();
   const [dataset, setDataset] = useState<"leads" | "invoices" | "interactions" | "audit_logs">("leads");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!authLoading && !authenticated) {
+      navigate({ to: "/admin/login" });
+    }
+  }, [authLoading, authenticated, navigate]);
+
+  if (authLoading) return null;
+  if (!authenticated) return null;
+
+  if (role !== "super_admin" && role !== "admin") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-sm space-y-4">
+          <div className="size-14 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto">
+            <Lock className="size-7 text-amber-500" />
+          </div>
+          <h2 className="text-lg font-bold">Access Restricted</h2>
+          <p className="text-sm text-muted-foreground">
+            Data exports are only available to clinic owners and administrators.
+          </p>
+          <Link
+            to="/admin/dashboard"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
+          >
+            <ArrowLeft className="size-4" /> Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleExport = async () => {
     setError("");

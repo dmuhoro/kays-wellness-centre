@@ -5,6 +5,7 @@ import { requireOrg } from "./tenant.server";
 import { logger, EVENTS } from "./logger.server";
 import { recordAudit } from "./audit.server";
 import { getSession } from "./session.server";
+import { canAccessDataExport } from "./permissions.server";
 
 export function toCsvValue(val: unknown): string {
   if (val == null) return "";
@@ -175,8 +176,9 @@ export const generateExport = createServerFn({ method: "POST" })
   .inputValidator(exportSchema)
   .handler(async ({ data }) => {
     if (!isDbAvailable()) return { status: "db_unavailable" as const };
-    const { orgId, log } = requireOrg();
     const session = getSession();
+    if (!canAccessDataExport(session?.role ?? null)) return { status: "forbidden" as const };
+    const { orgId, log } = requireOrg();
 
     let csv: string;
     switch (data.dataset) {

@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, Suspense } from "react";
-import { Shield, ArrowLeft, Receipt, Loader2 } from "lucide-react";
+import { Shield, ArrowLeft, Receipt, Loader2, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { BillingLedger } from "@/components/finance/BillingLedger";
+import { canAccessFinance } from "@/lib/permissions.server";
 
 export const Route = createFileRoute("/admin/finance")({
   head: () => ({
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/admin/finance")({
 
 function FinancePage() {
   const navigate = useNavigate();
-  const { loading, authenticated } = useAuth();
+  const { loading, authenticated, role } = useAuth();
 
   useEffect(() => {
     if (!loading && !authenticated) {
@@ -39,6 +40,29 @@ function FinancePage() {
   }
 
   if (!authenticated) return null;
+
+  if (!canAccessFinance(role)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-sm space-y-4">
+          <div className="size-14 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto">
+            <Lock className="size-7 text-amber-500" />
+          </div>
+          <h2 className="text-lg font-bold">Access Restricted</h2>
+          <p className="text-sm text-muted-foreground">
+            The billing ledger is only available to clinic owners and administrators.
+            Contact your clinic owner to request access.
+          </p>
+          <Link
+            to="/admin/dashboard"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
+          >
+            <ArrowLeft className="size-4" /> Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background px-4 sm:px-6 lg:px-8 py-8">
