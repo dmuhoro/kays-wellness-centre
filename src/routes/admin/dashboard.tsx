@@ -13,6 +13,10 @@ import {
   BarChart3,
   Loader2,
   RefreshCw,
+  Receipt,
+  Landmark,
+  Percent,
+  UserCheck,
 } from "lucide-react";
 import { getAnalytics } from "@/lib/api/analytics.server";
 import { useAuth } from "@/hooks/useAuth";
@@ -213,6 +217,72 @@ function DashboardContent() {
           accent="bg-red-500/10"
         />
       </div>
+
+      {/* Financial KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard
+          icon={Receipt}
+          label="Accounts Receivable"
+          value={`KES ${analytics.accountsReceivable.toLocaleString()}`}
+          sublabel="Unpaid invoices"
+          color="text-amber-500"
+          accent="bg-amber-500/10"
+        />
+        <StatCard
+          icon={Landmark}
+          label="MRR (This Month)"
+          value={`KES ${analytics.monthlyRecurringRevenue.toLocaleString()}`}
+          sublabel="Paid invoices this month"
+          color="text-emerald-500"
+          accent="bg-emerald-500/10"
+        />
+        <StatCard
+          icon={Percent}
+          label="Collection Rate"
+          value={`${analytics.collectionRate}%`}
+          sublabel="Paid / Total invoices"
+          color="text-violet-500"
+          accent="bg-violet-500/10"
+        />
+        <StatCard
+          icon={UserCheck}
+          label="Top Resource"
+          value={
+            analytics.revenuePerResource.length > 0
+              ? analytics.revenuePerResource[0].name
+              : "N/A"
+          }
+          sublabel={
+            analytics.revenuePerResource.length > 0
+              ? `KES ${analytics.revenuePerResource[0].revenue.toLocaleString()}`
+              : "No resource data"
+          }
+          color="text-sky-500"
+          accent="bg-sky-500/10"
+        />
+      </div>
+
+      {analytics.revenuePerResource.length > 0 && (
+        <div className="glass rounded-2xl border-warm p-5 animate-fade-up">
+          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+            <BarChart3 className="size-4 text-primary" /> Revenue Per Resource
+          </h3>
+          <div className="space-y-2">
+            {analytics.revenuePerResource.map((r) => (
+              <div key={r.resourceId} className="flex items-center justify-between py-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium">{r.name}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase">({r.type})</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-muted-foreground">{r.appointmentCount} appts</span>
+                  <span className="text-xs font-semibold">KES {r.revenue.toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <StageBreakdownBar breakdown={analytics.stageBreakdown} />
 

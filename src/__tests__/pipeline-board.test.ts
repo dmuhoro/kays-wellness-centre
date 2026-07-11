@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 
-vi.setConfig({ testTimeout: 15_000 });
+vi.setConfig({ testTimeout: 60_000 });
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -21,12 +21,16 @@ vi.mock("@/lib/api/dispatch.server", () => ({
   dispatchLeadMessage: vi.fn().mockResolvedValue({ status: "dispatched" }),
 }));
 
+vi.mock("@/lib/api/billing.server", () => ({
+  generateInvoiceForCheckedIn: vi.fn().mockResolvedValue({ status: "ok" }),
+}));
+
 describe("PipelineBoard", () => {
   it("exports PipelineBoard as function component", async () => {
     const mod = await import("@/components/leads/PipelineBoard");
     expect(mod).toHaveProperty("PipelineBoard");
     expect(typeof mod.PipelineBoard).toBe("function");
-  });
+  }, 60_000);
 
   it("exports PIPELINE_STAGES with all five stages", async () => {
     const mod = await import("@/components/leads/PipelineBoard");

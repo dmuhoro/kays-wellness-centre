@@ -15,6 +15,7 @@ import { useUpdateLead, useDeleteLead } from "@/hooks/useLeads";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { dispatchLeadMessage } from "@/lib/api/dispatch.server";
 import { useLogDragInteraction } from "@/hooks/usePipelineActivity";
+import { generateInvoiceForCheckedIn } from "@/lib/api/billing.server";
 import { toast } from "sonner";
 import type { TriagePriority } from "@/hooks/clinic-os-types";
 import { ActivityTimeline } from "./ActivityTimeline";
@@ -157,6 +158,9 @@ function LeadCard({
           onSuccess: () => {
             logDrag(lead.id, fromStage, status);
             queryClient.invalidateQueries({ queryKey: ["interactions", lead.id] });
+            if (status === "converted") {
+              generateInvoiceForCheckedIn({ data: { leadId: lead.id } }).catch(() => {});
+            }
           },
         },
       );

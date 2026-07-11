@@ -18,6 +18,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminTriageRouteImport } from './routes/admin/triage'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AdminFinanceRouteImport } from './routes/admin/finance'
 import { Route as AdminDiagnosticsRouteImport } from './routes/admin/diagnostics'
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 import { Route as AdminSettingsOperationsRouteImport } from './routes/admin/settings/operations'
@@ -67,6 +68,11 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminFinanceRoute = AdminFinanceRouteImport.update({
+  id: '/admin/finance',
+  path: '/admin/finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDiagnosticsRoute = AdminDiagnosticsRouteImport.update({
   id: '/admin/diagnostics',
   path: '/admin/diagnostics',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/diagnostics': typeof AdminDiagnosticsRoute
+  '/admin/finance': typeof AdminFinanceRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/triage': typeof AdminTriageRoute
   '/admin/settings/operations': typeof AdminSettingsOperationsRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/diagnostics': typeof AdminDiagnosticsRoute
+  '/admin/finance': typeof AdminFinanceRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/triage': typeof AdminTriageRoute
   '/admin/settings/operations': typeof AdminSettingsOperationsRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/diagnostics': typeof AdminDiagnosticsRoute
+  '/admin/finance': typeof AdminFinanceRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/triage': typeof AdminTriageRoute
   '/admin/settings/operations': typeof AdminSettingsOperationsRoute
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/diagnostics'
+    | '/admin/finance'
     | '/admin/login'
     | '/admin/triage'
     | '/admin/settings/operations'
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/diagnostics'
+    | '/admin/finance'
     | '/admin/login'
     | '/admin/triage'
     | '/admin/settings/operations'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/admin/dashboard'
     | '/admin/diagnostics'
+    | '/admin/finance'
     | '/admin/login'
     | '/admin/triage'
     | '/admin/settings/operations'
@@ -181,6 +193,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminDiagnosticsRoute: typeof AdminDiagnosticsRoute
+  AdminFinanceRoute: typeof AdminFinanceRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminTriageRoute: typeof AdminTriageRoute
   AdminSettingsOperationsRoute: typeof AdminSettingsOperationsRoute
@@ -251,6 +264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/finance': {
+      id: '/admin/finance'
+      path: '/admin/finance'
+      fullPath: '/admin/finance'
+      preLoaderRoute: typeof AdminFinanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/diagnostics': {
       id: '/admin/diagnostics'
       path: '/admin/diagnostics'
@@ -285,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminDiagnosticsRoute: AdminDiagnosticsRoute,
+  AdminFinanceRoute: AdminFinanceRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminTriageRoute: AdminTriageRoute,
   AdminSettingsOperationsRoute: AdminSettingsOperationsRoute,

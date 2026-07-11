@@ -150,6 +150,39 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         );
         CREATE INDEX IF NOT EXISTS idx_resources_org_type
           ON resources (organization_id, type);
+
+        CREATE TABLE IF NOT EXISTS invoices (
+          id SERIAL PRIMARY KEY,
+          lead_id INTEGER NOT NULL REFERENCES clinic_leads(id) ON DELETE CASCADE,
+          organization_id UUID NOT NULL REFERENCES organizations(id),
+          invoice_number VARCHAR(30) NOT NULL,
+          total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+          status VARCHAR(20) NOT NULL DEFAULT 'draft',
+          issued_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          paid_at TIMESTAMP WITH TIME ZONE,
+          due_at TIMESTAMP WITH TIME ZONE,
+          notes TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(organization_id, invoice_number)
+        );
+        CREATE INDEX IF NOT EXISTS idx_invoices_org_status
+          ON invoices (organization_id, status);
+        CREATE INDEX IF NOT EXISTS idx_invoices_lead
+          ON invoices (lead_id);
+
+        CREATE TABLE IF NOT EXISTS payments (
+          id SERIAL PRIMARY KEY,
+          invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+          organization_id UUID NOT NULL REFERENCES organizations(id),
+          amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+          method VARCHAR(20) NOT NULL CHECK (method IN ('cash', 'mobile_money', 'card')),
+          receipt_number VARCHAR(30) NOT NULL,
+          notes TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(organization_id, receipt_number)
+        );
+        CREATE INDEX IF NOT EXISTS idx_payments_invoice
+          ON payments (invoice_id);
       `);
 
       const hasOrgIdCol = await db.unsafe(`

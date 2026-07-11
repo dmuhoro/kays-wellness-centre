@@ -21,6 +21,22 @@ vi.mock("../lib/db.server", () => ({
   isDbAvailable: vi.fn().mockReturnValue(true),
 }));
 
+vi.mock("@/lib/api/resources.server", () => ({
+  fetchResources: vi.fn().mockResolvedValue({ status: "ok", resources: [] }),
+  scheduleAppointment: vi.fn().mockResolvedValue({ status: "ok" }),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
+
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useQuery: () => ({ data: null, isLoading: false }),
+  useSuspenseQuery: () => ({ data: null }),
+}));
+
 vi.mock("../lib/session.server", () => ({
   getCurrentOrgId: () => "org-test-1",
 }));
