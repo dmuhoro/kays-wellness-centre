@@ -243,6 +243,22 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
       );
       CREATE INDEX IF NOT EXISTS idx_notification_queue_status
         ON notification_queue (status, next_retry_at);
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id),
+        action_type VARCHAR(30) NOT NULL,
+        target_type VARCHAR(50) NOT NULL DEFAULT '',
+        target_id VARCHAR(50) NOT NULL DEFAULT '',
+        client_ip VARCHAR(45),
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant
+        ON audit_logs (tenant_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_action
+        ON audit_logs (tenant_id, action_type);
     `);
 
     return true;

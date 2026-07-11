@@ -4,6 +4,8 @@ import { getDb, ensureSchema, isDbAvailable, getConnectionError } from "../db.se
 import { logger, EVENTS } from "../logger.server";
 import { requireOrg } from "../tenant.server";
 import { enqueueNotification } from "../queue.server";
+import { recordAudit } from "../audit.server";
+import { getSession } from "../session.server";
 
 export type LeadRow = {
   id: number;
@@ -215,6 +217,18 @@ export const updateLead = createServerFn({ method: "POST" })
       `UPDATE clinic_leads SET ${setClauses.join(", ")} WHERE id = $${values.length - 1} AND organization_id = $${values.length}`,
       values,
     );
+    const session = getSession();
+    if (data.status) {
+      recordAudit({
+        orgId,
+        userId: session?.userId ?? null,
+        actionType: "PATIENT_TRIAGED",
+        targetType: "lead",
+        targetId: String(data.id),
+        metadata: { newStatus: data.status, changedFields: Object.keys(setClauses).map((i) => setClauses[Number(i)]) },
+      });
+    }
+
     log.info("Lead updated", {
       event: EVENTS.LEAD_UPDATED,
       leadId: data.id,
@@ -229,12 +243,22 @@ export const deleteLead = createServerFn({ method: "POST" })
       return { status: "db_unavailable" as const };
     }
     const { orgId, log } = requireOrg();
+    const session = getSession();
 
     const db = await getDb();
     await db.unsafe(
       "DELETE FROM clinic_leads WHERE id = $1 AND organization_id = $2",
       [data.id, orgId],
     );
+
+    recordAudit({
+      orgId,
+      userId: session?.userId ?? null,
+      actionType: "RECORD_DELETED",
+      targetType: "lead",
+      targetId: String(data.id),
+    });
+
     log.info("Lead deleted", {
       event: EVENTS.LEAD_DELETED,
       leadId: data.id,

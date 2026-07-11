@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getDb, isDbAvailable } from "../db.server";
 import { requireOrg } from "../tenant.server";
 import { logger, EVENTS } from "../logger.server";
+import { recordAudit } from "../audit.server";
+import { getSession } from "../session.server";
 
 export interface InvoiceRow {
   id: number;
@@ -81,6 +83,16 @@ export async function generateInvoice(
      RETURNING *`,
     [leadId, orgId, invoiceNumber, amount, dueAt ?? null],
   );
+
+  const session = getSession();
+  recordAudit({
+    orgId,
+    userId: session?.userId ?? null,
+    actionType: "INVOICE_UPDATED",
+    targetType: "invoice",
+    targetId: String(rows[0].id),
+    metadata: { invoiceNumber, amount, leadId },
+  });
 
   logger.info("Invoice generated", {
     event: EVENTS.INVOICE_GENERATED,
