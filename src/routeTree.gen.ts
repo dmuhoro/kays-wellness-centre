@@ -24,6 +24,7 @@ import { Route as AdminDiagnosticsRouteImport } from './routes/admin/diagnostics
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 import { Route as AdminSystemDiagnosticsRouteImport } from './routes/admin/system/diagnostics'
 import { Route as AdminSettingsOperationsRouteImport } from './routes/admin/settings/operations'
+import { Route as AdminSettingsDeveloperRouteImport } from './routes/admin/settings/developer'
 import { Route as AdminSettingsDataRouteImport } from './routes/admin/settings/data'
 import { Route as AdminSettingsBillingRouteImport } from './routes/admin/settings/billing'
 
@@ -102,6 +103,11 @@ const AdminSettingsOperationsRoute = AdminSettingsOperationsRouteImport.update({
   path: '/admin/settings/operations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSettingsDeveloperRoute = AdminSettingsDeveloperRouteImport.update({
+  id: '/admin/settings/developer',
+  path: '/admin/settings/developer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminSettingsDataRoute = AdminSettingsDataRouteImport.update({
   id: '/admin/settings/data',
   path: '/admin/settings/data',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/admin/triage': typeof AdminTriageRoute
   '/admin/settings/billing': typeof AdminSettingsBillingRoute
   '/admin/settings/data': typeof AdminSettingsDataRoute
+  '/admin/settings/developer': typeof AdminSettingsDeveloperRoute
   '/admin/settings/operations': typeof AdminSettingsOperationsRoute
   '/admin/system/diagnostics': typeof AdminSystemDiagnosticsRoute
 }
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/admin/triage': typeof AdminTriageRoute
   '/admin/settings/billing': typeof AdminSettingsBillingRoute
   '/admin/settings/data': typeof AdminSettingsDataRoute
+  '/admin/settings/developer': typeof AdminSettingsDeveloperRoute
   '/admin/settings/operations': typeof AdminSettingsOperationsRoute
   '/admin/system/diagnostics': typeof AdminSystemDiagnosticsRoute
 }
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/admin/triage': typeof AdminTriageRoute
   '/admin/settings/billing': typeof AdminSettingsBillingRoute
   '/admin/settings/data': typeof AdminSettingsDataRoute
+  '/admin/settings/developer': typeof AdminSettingsDeveloperRoute
   '/admin/settings/operations': typeof AdminSettingsOperationsRoute
   '/admin/system/diagnostics': typeof AdminSystemDiagnosticsRoute
 }
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/admin/triage'
     | '/admin/settings/billing'
     | '/admin/settings/data'
+    | '/admin/settings/developer'
     | '/admin/settings/operations'
     | '/admin/system/diagnostics'
   fileRoutesByTo: FileRoutesByTo
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/admin/triage'
     | '/admin/settings/billing'
     | '/admin/settings/data'
+    | '/admin/settings/developer'
     | '/admin/settings/operations'
     | '/admin/system/diagnostics'
   id:
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/admin/triage'
     | '/admin/settings/billing'
     | '/admin/settings/data'
+    | '/admin/settings/developer'
     | '/admin/settings/operations'
     | '/admin/system/diagnostics'
   fileRoutesById: FileRoutesById
@@ -247,6 +259,7 @@ export interface RootRouteChildren {
   AdminTriageRoute: typeof AdminTriageRoute
   AdminSettingsBillingRoute: typeof AdminSettingsBillingRoute
   AdminSettingsDataRoute: typeof AdminSettingsDataRoute
+  AdminSettingsDeveloperRoute: typeof AdminSettingsDeveloperRoute
   AdminSettingsOperationsRoute: typeof AdminSettingsOperationsRoute
   AdminSystemDiagnosticsRoute: typeof AdminSystemDiagnosticsRoute
 }
@@ -358,6 +371,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsOperationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/settings/developer': {
+      id: '/admin/settings/developer'
+      path: '/admin/settings/developer'
+      fullPath: '/admin/settings/developer'
+      preLoaderRoute: typeof AdminSettingsDeveloperRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/settings/data': {
       id: '/admin/settings/data'
       path: '/admin/settings/data'
@@ -391,6 +411,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminTriageRoute: AdminTriageRoute,
   AdminSettingsBillingRoute: AdminSettingsBillingRoute,
   AdminSettingsDataRoute: AdminSettingsDataRoute,
+  AdminSettingsDeveloperRoute: AdminSettingsDeveloperRoute,
   AdminSettingsOperationsRoute: AdminSettingsOperationsRoute,
   AdminSystemDiagnosticsRoute: AdminSystemDiagnosticsRoute,
 }

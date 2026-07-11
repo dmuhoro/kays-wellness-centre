@@ -338,6 +338,60 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         ON live_events (tenant_id, id);
     `);
 
+    await db.unsafe(`
+      CREATE TABLE IF NOT EXISTS webhook_configs (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        url VARCHAR(500) NOT NULL,
+        secret VARCHAR(128) NOT NULL,
+        events JSONB NOT NULL DEFAULT '[]',
+        active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_webhook_configs_org
+        ON webhook_configs (organization_id, active);
+
+      CREATE TABLE IF NOT EXISTS webhook_deliveries (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        webhook_config_id INTEGER NOT NULL REFERENCES webhook_configs(id) ON DELETE CASCADE,
+        event_type VARCHAR(50) NOT NULL,
+        payload JSONB NOT NULL DEFAULT '{}',
+        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        response_code INTEGER,
+        response_time_ms INTEGER,
+        error_message TEXT,
+        retry_count SMALLINT NOT NULL DEFAULT 0,
+        max_retries SMALLINT NOT NULL DEFAULT 3,
+        next_retry_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_org
+        ON webhook_deliveries (organization_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status
+        ON webhook_deliveries (status, next_retry_at);
+
+      CREATE TABLE IF NOT EXISTS message_ledger (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        lead_id INTEGER REFERENCES clinic_leads(id),
+        channel VARCHAR(20) NOT NULL CHECK (channel IN ('whatsapp', 'sms')),
+        direction VARCHAR(10) NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+        from_address VARCHAR(100) NOT NULL,
+        to_address VARCHAR(100) NOT NULL,
+        body TEXT NOT NULL DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT 'sent',
+        external_id VARCHAR(100),
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_message_ledger_lead
+        ON message_ledger (lead_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_message_ledger_org
+        ON message_ledger (organization_id, created_at DESC);
+    `);
+
     return true;
   } catch (err) {
     logger.error("Schema setup failed", {
