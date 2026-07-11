@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { DollarSign, Receipt, Wallet, CreditCard, Smartphone, Loader2, ChevronDown, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { fetchInvoices, fetchPayments, addPayment } from "@/lib/api/billing.server";
 import type { InvoiceRow, PaymentRow } from "@/lib/api/billing.server";
+import { paymentSchema, type PaymentInput } from "@/lib/schemas/client-validators";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "text-gray-500 bg-gray-500/10",
@@ -32,9 +35,12 @@ function PaymentForm({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [amount, setAmount] = useState(invoice.total_amount);
-  const [method, setMethod] = useState<"cash" | "mobile_money" | "card">("cash");
-  const [notes, setNotes] = useState("");
+
+  const form = useForm<PaymentInput>({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: { amount: invoice.total_amount, method: "cash", notes: "" },
+    mode: "onSubmit",
+  });
 
   const payMutation = useMutation({
     mutationFn: (data: { invoiceId: number; amount: number; method: "cash" | "mobile_money" | "card"; notes?: string }) =>
@@ -56,16 +62,12 @@ function PaymentForm({
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (amount <= 0) {
-      toast.error("Invalid amount");
-      return;
-    }
-    payMutation.mutate({ invoiceId: invoice.id, amount, method, notes: notes || undefined });
+  const handleSubmit = (data: PaymentInput) => {
+    payMutation.mutate({ invoiceId: invoice.id, ...data, notes: data.notes || undefined });
   };
 
-  const remaining = invoice.total_amount;
+  const amount = form.watch("amount");
+  const method = form.watch("method");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
@@ -78,17 +80,18 @@ function PaymentForm({
           Invoice {invoice.invoice_number} — KES {invoice.total_amount.toLocaleString()}
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <div>
             <label className="block text-[11px] font-medium mb-1 text-muted-foreground">Amount (KES)</label>
             <input
               type="number"
               min={1}
-              max={remaining}
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
+              {...form.register("amount", { valueAsNumber: true })}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
+            {form.formState.errors.amount && (
+              <p className="text-[10px] text-red-500 mt-1">{form.formState.errors.amount.message}</p>
+            )}
           </div>
 
           <div>
@@ -100,7 +103,7 @@ function PaymentForm({
                   <button
                     key={m}
                     type="button"
-                    onClick={() => setMethod(m)}
+                    onClick={() => form.setValue("method", m)}
                     className={`flex flex-col items-center gap-1 rounded-lg border py-2 px-3 text-xs transition-colors ${
                       method === m
                         ? "border-primary bg-primary/5 text-primary"
@@ -113,14 +116,16 @@ function PaymentForm({
                 );
               })}
             </div>
+            {form.formState.errors.method && (
+              <p className="text-[10px] text-red-500 mt-1">{form.formState.errors.method.message}</p>
+            )}
           </div>
 
           <div>
             <label className="block text-[11px] font-medium mb-1 text-muted-foreground">Notes (optional)</label>
             <input
               type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              {...form.register("notes")}
               placeholder="e.g., M-Pesa confirmation ABC123"
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />

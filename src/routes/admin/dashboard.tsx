@@ -21,6 +21,7 @@ import {
 import { getAnalytics } from "@/lib/api/analytics.server";
 import { useAuth } from "@/hooks/useAuth";
 import { NetworkStatus } from "@/components/NetworkStatus";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import type { AnalyticsSnapshot } from "@/lib/analytics.server";
 
 export const Route = createFileRoute("/admin/dashboard")({
@@ -384,7 +385,9 @@ function DashboardPage() {
             <div className="h-40 animate-pulse rounded-2xl bg-secondary/30" />
           }
         >
-          <DashboardContent />
+          <ErrorBoundary>
+            <DashboardContent />
+          </ErrorBoundary>
         </Suspense>
       </div>
     </div>

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as ResourcesRouteImport } from './routes/resources'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as OurStoryRouteImport } from './routes/our-story'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -36,6 +37,11 @@ const ServicesRoute = ServicesRouteImport.update({
 const ResourcesRoute = ResourcesRouteImport.update({
   id: '/resources',
   path: '/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/our-story': typeof OurStoryRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/register': typeof RegisterRoute
   '/resources': typeof ResourcesRoute
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/our-story': typeof OurStoryRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/register': typeof RegisterRoute
   '/resources': typeof ResourcesRoute
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/our-story': typeof OurStoryRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/register': typeof RegisterRoute
   '/resources': typeof ResourcesRoute
   '/services': typeof ServicesRoute
   '/terms': typeof TermsRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/our-story'
     | '/privacy-policy'
+    | '/register'
     | '/resources'
     | '/services'
     | '/terms'
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/our-story'
     | '/privacy-policy'
+    | '/register'
     | '/resources'
     | '/services'
     | '/terms'
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/our-story'
     | '/privacy-policy'
+    | '/register'
     | '/resources'
     | '/services'
     | '/terms'
@@ -188,6 +200,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   OurStoryRoute: typeof OurStoryRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
+  RegisterRoute: typeof RegisterRoute
   ResourcesRoute: typeof ResourcesRoute
   ServicesRoute: typeof ServicesRoute
   TermsRoute: typeof TermsRoute
@@ -220,6 +233,13 @@ declare module '@tanstack/react-router' {
       path: '/resources'
       fullPath: '/resources'
       preLoaderRoute: typeof ResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy-policy': {
@@ -300,6 +320,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   OurStoryRoute: OurStoryRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
+  RegisterRoute: RegisterRoute,
   ResourcesRoute: ResourcesRoute,
   ServicesRoute: ServicesRoute,
   TermsRoute: TermsRoute,

@@ -406,19 +406,23 @@ function TriageDashboard() {
             <MetricsBar leads={leads} />
             {view === "pipeline" ? (
               <div className="glass rounded-2xl border-warm p-4">
-                <PipelineBoard
-                  leads={leads}
-                  pendingReplyIds={pendingReplyIds}
-                  cancellationAlertIds={cancellationAlertIds}
-                />
+                <ErrorBoundary>
+                  <PipelineBoard
+                    leads={leads}
+                    pendingReplyIds={pendingReplyIds}
+                    cancellationAlertIds={cancellationAlertIds}
+                  />
+                </ErrorBoundary>
               </div>
             ) : view === "calendar" ? (
-              <CalendarGrid
-                leads={leads}
-                onSchedule={(leadId, timestamp) => {
-                  getAvailableSlots({ data: { date: timestamp.split("T")[0] } }).catch(() => {});
-                }}
-              />
+              <ErrorBoundary>
+                <CalendarGrid
+                  leads={leads}
+                  onSchedule={(leadId, timestamp) => {
+                    getAvailableSlots({ data: { date: timestamp.split("T")[0] } }).catch(() => {});
+                  }}
+                />
+              </ErrorBoundary>
             ) : (
               <QueueTable leads={leads} />
             )}
