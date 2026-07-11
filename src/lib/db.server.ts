@@ -486,6 +486,90 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         ON checkout_sessions (status, expires_at);
     `);
 
+    // ── Sprint 33: Marketing Pipeline, Retention, Reviews ──────────
+
+    await db.unsafe(`
+      CREATE TABLE IF NOT EXISTS retention_tasks (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        lead_id INTEGER NOT NULL REFERENCES clinic_leads(id) ON DELETE CASCADE,
+        action_type VARCHAR(40) NOT NULL,
+        channel VARCHAR(20) NOT NULL DEFAULT 'whatsapp',
+        message TEXT NOT NULL DEFAULT '',
+        scheduled_for TIMESTAMP WITH TIME ZONE NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed', 'cancelled')),
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_retention_tasks_org_status
+        ON retention_tasks (organization_id, status);
+      CREATE INDEX IF NOT EXISTS idx_retention_tasks_scheduled
+        ON retention_tasks (status, scheduled_for)
+        WHERE status = 'pending';
+
+      CREATE TABLE IF NOT EXISTS satisfaction_prompts (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        invoice_id INTEGER REFERENCES invoices(id),
+        lead_id INTEGER NOT NULL REFERENCES clinic_leads(id) ON DELETE CASCADE,
+        message TEXT NOT NULL DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'responded', 'expired')),
+        sentiment VARCHAR(10) CHECK (sentiment IN ('positive', 'neutral', 'negative')),
+        nps_score SMALLINT CHECK (nps_score >= 0 AND nps_score <= 10),
+        review_submitted BOOLEAN NOT NULL DEFAULT false,
+        responded_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_satisfaction_prompts_org
+        ON satisfaction_prompts (organization_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_satisfaction_prompts_lead
+        ON satisfaction_prompts (lead_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS feedback_responses (
+        id SERIAL PRIMARY KEY,
+        prompt_id INTEGER NOT NULL REFERENCES satisfaction_prompts(id) ON DELETE CASCADE,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        lead_id INTEGER NOT NULL REFERENCES clinic_leads(id) ON DELETE CASCADE,
+        nps_score SMALLINT NOT NULL CHECK (nps_score >= 0 AND nps_score <= 10),
+        sentiment VARCHAR(10) NOT NULL CHECK (sentiment IN ('positive', 'neutral', 'negative')),
+        comment TEXT,
+        review_submitted BOOLEAN NOT NULL DEFAULT false,
+        platform VARCHAR(20) NOT NULL DEFAULT 'internal',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_feedback_responses_org
+        ON feedback_responses (organization_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS review_submissions (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        feedback_id INTEGER NOT NULL REFERENCES feedback_responses(id) ON DELETE CASCADE,
+        lead_id INTEGER NOT NULL REFERENCES clinic_leads(id) ON DELETE CASCADE,
+        platform VARCHAR(20) NOT NULL DEFAULT 'google',
+        review_url VARCHAR(500),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'submitted', 'failed', 'approved')),
+        submitted_at TIMESTAMP WITH TIME ZONE,
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_review_submissions_org
+        ON review_submissions (organization_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS review_guard_config (
+        id SERIAL PRIMARY KEY,
+        organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        review_guard_enabled BOOLEAN NOT NULL DEFAULT true,
+        auto_send_satisfaction BOOLEAN NOT NULL DEFAULT true,
+        nps_review_threshold SMALLINT NOT NULL DEFAULT 9 CHECK (nps_review_threshold BETWEEN 0 AND 10),
+        review_platform VARCHAR(20) NOT NULL DEFAULT 'google',
+        custom_satisfaction_message TEXT,
+        satisfaction_cooldown_days SMALLINT NOT NULL DEFAULT 30,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(organization_id)
+      );
+    `);
+
     return true;
   } catch (err) {
     logger.error("Schema setup failed", {

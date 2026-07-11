@@ -9,7 +9,8 @@ export type AuditActionType =
   | "PATIENT_TRIAGED"
   | "INVOICE_UPDATED"
   | "PAYMENT_RECORDED"
-  | "CONFIG_CHANGED";
+  | "CONFIG_CHANGED"
+  | "LEAD_INGESTED";
 
 export interface AuditLogRow {
   id: number;
