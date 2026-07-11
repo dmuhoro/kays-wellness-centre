@@ -244,6 +244,21 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
           ALTER TABLE clinic_leads ADD COLUMN room_id INTEGER REFERENCES resources(id);
         `);
       }
+
+      const hasSubTierCol = await db.unsafe(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'organizations' AND column_name = 'subscription_tier'
+      `);
+      if (hasSubTierCol.length === 0) {
+        await db.unsafe(`
+          ALTER TABLE organizations ADD COLUMN subscription_tier VARCHAR(20) NOT NULL DEFAULT 'starter';
+          ALTER TABLE organizations ADD COLUMN subscription_status VARCHAR(20) NOT NULL DEFAULT 'active';
+          ALTER TABLE organizations ADD COLUMN subscription_expires_at TIMESTAMP WITH TIME ZONE;
+          ALTER TABLE organizations ADD COLUMN leads_used INTEGER NOT NULL DEFAULT 0;
+          ALTER TABLE organizations ADD COLUMN storage_used_bytes BIGINT NOT NULL DEFAULT 0;
+          ALTER TABLE organizations ADD COLUMN usage_refreshed_at TIMESTAMP WITH TIME ZONE;
+        `);
+      }
     }
 
     await db.unsafe(`
