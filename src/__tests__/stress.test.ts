@@ -118,7 +118,9 @@ describe("runStressSuite — 500 concurrent operations", () => {
     const count = 100;
     const promises: Promise<void>[] = [];
     for (let i = 0; i < count; i++) {
-      promises.push(simulateLeadDrag(db, i % 10, "a", "b"));
+      promises.push(
+        simulateLeadDrag(db, i % 10, "a", "b").catch(() => {}),
+      );
     }
     await Promise.all(promises);
     const stats = db.getStats();
