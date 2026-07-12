@@ -1,5 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
+
+vi.mock("@/lib/permissions.server", () => ({
+  requireRole: vi.fn(),
+  ROLES: { SUPER_ADMIN: "super_admin", CLINIC_OWNER: "admin", CLINIC_STAFF: "staff" },
+}));
 
 const telemetrySchema = z.object({
   total: z.number().int().min(0),

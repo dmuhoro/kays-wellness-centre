@@ -4,6 +4,7 @@ import { isDbAvailable, getConnectionError, getDb } from "../db.server";
 import { logger, EVENTS } from "../logger.server";
 import { getNodeEnv } from "../env.server";
 import { requireOrg } from "../tenant.server";
+import { requireRole, ROLES } from "../permissions.server";
 
 export const getServerStatus = createServerFn({ method: "GET" }).handler(async () => {
   const available = isDbAvailable();
@@ -34,6 +35,7 @@ export interface QueueTelemetry {
 }
 
 export const getQueueTelemetry = createServerFn({ method: "GET" }).handler(async (): Promise<QueueTelemetry> => {
+  requireRole(ROLES.SUPER_ADMIN);
   const db = await getDb();
   const rows = await db.unsafe<QueueStatsRow[]>(
     `SELECT status, COUNT(*)::int AS count
@@ -54,6 +56,7 @@ export const getQueueTelemetry = createServerFn({ method: "GET" }).handler(async
 export const forceRetryQueueItems = createServerFn({ method: "POST" })
   .inputValidator(z.object({ maxItems: z.number().int().min(1).max(100).default(25) }))
   .handler(async ({ data }) => {
+    requireRole(ROLES.SUPER_ADMIN);
     const db = await getDb();
     const result = await db.unsafe(
       `UPDATE notification_queue
@@ -79,6 +82,7 @@ export const forceRetryQueueItems = createServerFn({ method: "POST" })
 
 export const getFailedQueueItems = createServerFn({ method: "GET" })
   .handler(async () => {
+    requireRole(ROLES.SUPER_ADMIN);
     const db = await getDb();
     const rows = await db.unsafe(
       `SELECT id, tenant_id, lead_id, event_type, retry_count, max_retries, last_error, created_at, next_retry_at

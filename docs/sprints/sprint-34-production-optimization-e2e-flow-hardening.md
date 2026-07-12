@@ -2,7 +2,7 @@
 
 ## Summary
 
-Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, and tenant isolation hardening across all server modules. **611 tests / 52 files — all passing.**
+Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, and tenant isolation hardening across all server modules. **629 tests / 53 files — all passing.**
 
 ## Audit Findings
 
@@ -10,15 +10,15 @@ Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, a
 
 8 queries found missing `organization_id` enforcement:
 
-| Module | Issue | Severity |
-|--------|-------|----------|
-| `api/interactions.server.ts:91` | Correlated subquery missing `organization_id` — cross-tenant timing leak | P0 |
-| `api/diagnostics.server.ts:38` | `getQueueTelemetry` aggregates ALL tenants' queue stats | P0 |
-| `api/diagnostics.server.ts:58` | `forceRetryQueueItems` resets failed items across ALL tenants | P0 |
-| `api/diagnostics.server.ts:83` | `getFailedQueueItems` returns items from ALL tenants | P0 |
-| `queue.server.ts:172` | `processQueue` fetches pending items from ALL tenants (reads payloads) | P0 |
-| `telemetry.server.ts:223-232` | `getMilestoneStats` — 3 queries with no org filter (admin aggregate) | P1 (admin-gated) |
-| `api/scheduling.server.ts:240` | String-interpolated WHERE clause instead of bound params | Warning |
+| Module | Issue | Severity | Status |
+|--------|-------|----------|--------|
+| `api/interactions.server.ts:91` | Correlated subquery missing `organization_id` — cross-tenant timing leak | P0 | **Fixed** |
+| `api/diagnostics.server.ts:38` | `getQueueTelemetry` aggregates ALL tenants' queue stats | P0 | **Fixed** (SUPER_ADMIN gate) |
+| `api/diagnostics.server.ts:58` | `forceRetryQueueItems` resets failed items across ALL tenants | P0 | **Fixed** (SUPER_ADMIN gate) |
+| `api/diagnostics.server.ts:83` | `getFailedQueueItems` returns items from ALL tenants | P0 | **Fixed** (SUPER_ADMIN gate) |
+| `queue.server.ts:172` | `processQueue` fetches pending items from ALL tenants (reads payloads) | P0 | **Fixed** (optional `tenantId` param) |
+| `telemetry.server.ts:223-232` | `getMilestoneStats` — 3 queries with no org filter (admin aggregate) | P1 | **Fixed** (SUPER_ADMIN gate) |
+| `api/scheduling.server.ts:240` | String-interpolated WHERE clause instead of bound params | Warning | Deferred |
 
 ### DB Index Audit
 
@@ -29,6 +29,32 @@ Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, a
 - `idx_invoices_lead_org` — care history joins
 - `idx_automation_state_org` — automation state lookups
 - `idx_queue_tenant_status` — notification queue dispatch
+
+## P0 Tenant Isolation Fixes
+
+### interactions.server.ts:91 — Correlated subquery scoped
+
+The `getLeadsWithPendingReplies` correlated subquery was missing `organization_id = $1`, allowing a cross-tenant timing leak where Org A could learn about Org B's reply status.
+
+**Fix**: Added `AND organization_id = $1` to the inner `SELECT MAX(created_at)` subquery.
+
+### queue.server.ts:172 — processQueue optional tenantId
+
+The background queue worker fetched ALL pending items across tenants, reading WhatsApp payloads for other clinics.
+
+**Fix**: Added optional `tenantId` parameter. When provided, the query scopes by `WHERE tenant_id = $1`. Without it (background worker mode), it processes all tenants as before.
+
+### diagnostics.server.ts — SUPER_ADMIN gate
+
+All three queue diagnostics functions (`getQueueTelemetry`, `forceRetryQueueItems`, `getFailedQueueItems`) had no access control and exposed cross-tenant queue data.
+
+**Fix**: Each function now calls `requireRole(ROLES.SUPER_ADMIN)` before executing any queries. Non-admin callers get a `TenantError("Insufficient permissions")`.
+
+### telemetry.server.ts — getMilestoneStats SUPER_ADMIN gate
+
+`getMilestoneStats()` ran 3 cross-tenant aggregate queries (`SELECT COUNT(*) FROM organizations`, milestone counts, activation rate) with no access control.
+
+**Fix**: Added `requireRole(ROLES.SUPER_ADMIN)` after the DB availability check. Admin aggregate stats are now restricted to platform admins.
 
 ## Key Rotation Bug Fix
 
@@ -88,16 +114,20 @@ Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, a
 | `src/lib/messaging.server.ts` | `updateMessageStatus` accepts optional `orgId` |
 | `src/lib/webhooks.server.ts` | `updateDeliveryStatus` accepts optional `orgId`; `webhook_configs` SELECT scoped |
 | `src/lib/reconciliation.server.ts` | UPDATE invoices scoped by `organization_id` |
-| `src/lib/queue.server.ts` | SELECT clinic_leads scoped by `organization_id` |
+| `src/lib/queue.server.ts` | SELECT clinic_leads scoped by `organization_id`; `processQueue` accepts optional `tenantId` |
 | `src/lib/api/billing.server.ts` | SUM payments + UPDATE invoices scoped by `organization_id` |
 | `src/lib/api/automation.server.ts` | SELECT automation_state scoped by `organization_id` |
+| `src/lib/api/interactions.server.ts` | Correlated subquery scoped by `organization_id` |
+| `src/lib/api/diagnostics.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getQueueTelemetry`, `forceRetryQueueItems`, `getFailedQueueItems` |
+| `src/lib/telemetry.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getMilestoneStats` |
 | `src/lib/db.server.ts` | 5 new performance indexes |
 | `src/__tests__/e2e-simulation.test.ts` | **New** — 15 E2E lifecycle tests |
 | `src/__tests__/reconciliation.test.ts` | +7 adversarial tests (idempotency, stale replay, partial match) |
 | `src/__tests__/encryption.test.ts` | +8 adversarial tests (key rotation, regression, missing org key) |
+| `src/__tests__/tenant-isolation-p0.test.ts` | **New** — 18 adversarial tests proving all P0 fixes |
 
 ## Test Results
 
-- **611 tests / 52 files** — all passing
+- **629 tests / 53 files** — all passing
 - **Build**: zero errors (only pre-existing `inputValidator()` deprecation warnings)
-- **New tests added**: 23 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial — net after consolidation)
+- **New tests added**: 41 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 18 tenant isolation P0 adversarial — net after consolidation)

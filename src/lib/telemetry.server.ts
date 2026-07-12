@@ -2,6 +2,7 @@ import { getDb, isDbAvailable } from "./db.server";
 import { logger, EVENTS } from "./logger.server";
 import { getSession } from "./session.server";
 import { publishEvent } from "./event-bus.server";
+import { requireRole, ROLES } from "./permissions.server";
 
 export interface MilestoneDefinition {
   key: string;
@@ -216,6 +217,8 @@ export async function getMilestoneStats(): Promise<{
   if (!isDbAvailable()) {
     return { totalOrgs: 0, orgsWithMilestones: 0, milestoneCounts: {}, activationRate: 0 };
   }
+
+  requireRole(ROLES.SUPER_ADMIN);
 
   const db = await getDb();
 

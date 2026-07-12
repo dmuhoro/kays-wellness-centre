@@ -13,6 +13,10 @@ vi.mock("@/lib/logger.server", () => ({
 }));
 vi.mock("@/lib/session.server", () => ({ getSession: vi.fn(() => ({ userId: 1 })) }));
 vi.mock("@/lib/event-bus.server", () => ({ publishEvent: vi.fn(() => Promise.resolve()) }));
+vi.mock("@/lib/permissions.server", () => ({
+  requireRole: vi.fn(),
+  ROLES: { SUPER_ADMIN: "super_admin", CLINIC_OWNER: "admin", CLINIC_STAFF: "staff" },
+}));
 
 describe("Milestone Tracking — First Time", () => {
   beforeEach(() => { vi.clearAllMocks(); });

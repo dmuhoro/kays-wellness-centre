@@ -159,9 +159,11 @@ export async function dispatchNotification({
 
 export async function processQueue({
   batchSize = 10,
+  tenantId,
   dispatch = dispatchNotification,
 }: {
   batchSize?: number;
+  tenantId?: string;
   dispatch?: typeof dispatchNotification;
 } = {}): Promise<{ processed: number; failed: number }> {
   const schemaOk = await ensureQueueSchema();
@@ -169,15 +171,25 @@ export async function processQueue({
 
   const db = await getDb();
 
-  const rows = await db.unsafe(
-    `SELECT id, tenant_id, lead_id, event_type, payload_json, retry_count, max_retries
-     FROM notification_queue
-     WHERE status = 'pending' AND next_retry_at <= CURRENT_TIMESTAMP
-     ORDER BY created_at ASC
-     LIMIT $1
-     FOR UPDATE SKIP LOCKED`,
-    [batchSize],
-  );
+  const rows = tenantId
+    ? await db.unsafe(
+        `SELECT id, tenant_id, lead_id, event_type, payload_json, retry_count, max_retries
+         FROM notification_queue
+         WHERE tenant_id = $1 AND status = 'pending' AND next_retry_at <= CURRENT_TIMESTAMP
+         ORDER BY created_at ASC
+         LIMIT $2
+         FOR UPDATE SKIP LOCKED`,
+        [tenantId, batchSize],
+      )
+    : await db.unsafe(
+        `SELECT id, tenant_id, lead_id, event_type, payload_json, retry_count, max_retries
+         FROM notification_queue
+         WHERE status = 'pending' AND next_retry_at <= CURRENT_TIMESTAMP
+         ORDER BY created_at ASC
+         LIMIT $1
+         FOR UPDATE SKIP LOCKED`,
+        [batchSize],
+      );
 
   let processed = 0;
   let failed = 0;

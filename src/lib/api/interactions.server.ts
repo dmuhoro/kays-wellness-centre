@@ -89,7 +89,7 @@ export const getLeadsWithPendingReplies = createServerFn({ method: "GET" }).hand
        AND li.event_type = 'message_received'
        AND li.created_at > COALESCE(
          (SELECT MAX(created_at) FROM lead_interactions
-          WHERE lead_id = li.lead_id AND event_type = 'message_sent'),
+           WHERE lead_id = li.lead_id AND event_type = 'message_sent' AND organization_id = $1),
          '1970-01-01'
        )`,
     [orgId],
