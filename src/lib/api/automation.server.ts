@@ -117,7 +117,7 @@ export async function processProgressiveFollowup(
     );
     if (lead.length === 0) return { action: "lead_not_found", dispatched: false };
 
-    const message = formatMessage("triage_followup", lead[0].name, lead[0].phone);
+    const message = formatMessage("triage_followup", lead[0].name);
     const result = await sendWhatsApp(lead[0].phone, message);
 
     const nextAction = new Date(now.getTime() + triageTimeoutMinutes * 60_000);
@@ -160,7 +160,7 @@ export async function processProgressiveFollowup(
     );
     if (lead.length === 0) return { action: "lead_not_found", dispatched: false };
 
-    const message = formatMessage("triage_followup", lead[0].name, lead[0].phone);
+    const message = formatMessage("triage_followup", lead[0].name);
     const result = await sendWhatsApp(lead[0].phone, message);
 
     const nextAction = new Date(now.getTime() + triageTimeoutMinutes * 60_000);
@@ -196,7 +196,7 @@ export async function processProgressiveFollowup(
     );
     if (lead.length === 0) return { action: "lead_not_found", dispatched: false };
 
-    const message = formatMessage("reminder", lead[0].name, lead[0].phone);
+    const message = formatMessage("reminder", lead[0].name);
     const result = await sendWhatsApp(lead[0].phone, message);
 
     const nextAction = new Date(now.getTime() + triageTimeoutMinutes * 4 * 60_000);
