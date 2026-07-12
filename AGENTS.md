@@ -45,3 +45,7 @@ A test that asserts current behavior as "proof a bug exists" is a diagnostic art
 **(b)** explicitly mark the test `xfail` or `skip` with a linked issue.
 
 The test suite's pass count must never imply a known defect is resolved when it isn't.
+
+## 10. All Commits Must Be SSH-Signed
+
+Every commit on `main` must carry a valid SSH signature (`git config commit.gpgsign true`, `gpg.format ssh`). The signing key `~/.ssh/id_ed25519.pub` is configured globally. If the agent runs `git commit` and the signature is missing, the commit is invalid — fix the config before pushing.
