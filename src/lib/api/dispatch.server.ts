@@ -4,6 +4,8 @@ import { getDb, isDbAvailable } from "../db.server";
 import { requireOrg } from "../tenant.server";
 import { enqueueNotification } from "../queue.server";
 import { logger, EVENTS } from "../logger.server";
+import { checkRateLimit } from "../rate-limit.server";
+import { requireRole, ROLES } from "../permissions.server";
 
 export type MessageType = "confirmation" | "triage_followup" | "reminder";
 
@@ -93,8 +95,15 @@ export const dispatchLeadMessage = createServerFn({ method: "POST" })
     if (!isDbAvailable()) {
       return { status: "db_unavailable" as const };
     }
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER, ROLES.CLINIC_STAFF); } catch { return { status: "forbidden" as const }; }
 
     const { orgId, log } = requireOrg();
+
+    if (!checkRateLimit(`whatsapp:${orgId}`, 20, 60_000)) {
+      log.warn("WhatsApp dispatch rate limited", { event: EVENTS.AUTH_FAILURE, orgId });
+      return { status: "rate_limited" as const };
+    }
+
     const db = await getDb();
 
     const rows = await db.unsafe<Array<{ name: string; phone: string; service: string }>>(

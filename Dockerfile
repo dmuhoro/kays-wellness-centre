@@ -1,6 +1,8 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
+ENV NITRO_PRESET=node-server
+
 COPY package.json package-lock.json ./
 RUN npm ci
 
@@ -9,6 +11,9 @@ RUN npm run build
 
 FROM node:22-alpine AS run
 WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NITRO_PRESET=node-server
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 

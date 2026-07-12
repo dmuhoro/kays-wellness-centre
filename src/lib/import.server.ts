@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb, isDbAvailable } from "./db.server";
 import { requireOrg } from "./tenant.server";
 import { logger, EVENTS } from "./logger.server";
+import { requireRole, ROLES } from "./permissions.server";
 
 const importRowSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -31,6 +32,7 @@ export const bulkImportLeads = createServerFn({ method: "POST" })
     if (!isDbAvailable()) {
       return { total: data.rows.length, inserted: 0, errors: data.rows.map((_, i) => ({ row: i + 1, message: "Database unavailable", data: {} })) };
     }
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER); } catch { return { status: "forbidden" as const } as unknown as ImportResult; }
 
     const { orgId, log } = requireOrg();
     const db = await getDb();

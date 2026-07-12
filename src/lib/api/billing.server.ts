@@ -260,6 +260,7 @@ export const fetchPayments = createServerFn({ method: "GET" })
   .inputValidator(z.object({ invoiceId: z.number() }))
   .handler(async ({ data }) => {
     if (!isDbAvailable()) return { status: "db_unavailable" as const, payments: [] };
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER); } catch { return { status: "forbidden" as const, payments: [] }; }
     const { orgId } = requireOrg();
     const payments = await getPayments(orgId, data.invoiceId);
     return { status: "ok", payments };

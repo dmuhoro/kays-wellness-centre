@@ -2,7 +2,7 @@
 
 ## Summary
 
-Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, and CI pipeline. **643 tests / 56 files — all passing.**
+Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, CI pipeline, in-memory rate limiting, RBAC completeness (12 guarded functions), Docker build fix, and Docker Compose. **660 tests / 58 files — all passing.**
 
 ## Audit Findings
 
@@ -126,38 +126,58 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 
 | File | Change |
 |------|--------|
+| `src/lib/rate-limit.server.ts` | **New** — in-memory sliding window rate limiter, no dependencies |
+| `src/lib/auth.server.ts` | Wire rate limit on `login` — 5 attempts/email/60s; import `checkRateLimit` |
 | `src/lib/env.server.ts` | Throws FATAL at boot if `NODE_ENV=production` and `SESSION_SECRET` is default; removed `.min(32)` from Zod schema |
 | `src/lib/auth.server.ts` | Added `logout` server function — `deleteCookie` clears session |
 | `src/lib/encryption.server.ts` | Added `getKeyByVersion`; `decryptPII` uses `payload.keyVersion`; dual-cache in `getActiveKey`/`initializeOrgKey` |
 | `src/lib/messaging.server.ts` | `updateMessageStatus` accepts optional `orgId` |
 | `src/lib/webhooks.server.ts` | `updateDeliveryStatus` accepts optional `orgId`; `webhook_configs` SELECT scoped |
-| `src/lib/reconciliation.server.ts` | UPDATE invoices scoped by `organization_id` |
+| `src/lib/reconciliation.server.ts` | UPDATE invoices scoped by `organization_id`; wire rate limit on `reconcilePayment` — 10/org/60s |
 | `src/lib/queue.server.ts` | SELECT clinic_leads scoped by `organization_id`; `processQueue` accepts optional `tenantId`; `processNotifications` dispatches per-tenant |
-| `src/lib/api/billing.server.ts` | SUM payments + UPDATE invoices scoped by `organization_id` |
-| `src/lib/api/automation.server.ts` | SELECT automation_state scoped by `organization_id` |
+| `src/lib/api/billing.server.ts` | SUM payments + UPDATE invoices scoped by `organization_id`; added `requireRole` to `fetchPayments` |
+| `src/lib/api/automation.server.ts` | SELECT automation_state scoped by `organization_id`; added `requireRole` to `triggerAutomation` |
 | `src/lib/api/interactions.server.ts` | Correlated subquery scoped by `organization_id` |
 | `src/lib/api/diagnostics.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getQueueTelemetry`, `forceRetryQueueItems`, `getFailedQueueItems` |
 | `src/lib/telemetry.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getMilestoneStats` |
-| `src/lib/api/scheduling.server.ts` | `bookSlot`/`reserveSlot` orgId from `requireOrg()` — removed `organizationId` from input validators; SQL injection fix with bound params |
+| `src/lib/api/scheduling.server.ts` | `bookSlot`/`reserveSlot` orgId from `requireOrg()` — removed `organizationId` from input validators; SQL injection fix with bound params; added `requireRole` for both |
+| `src/lib/api/leads.server.ts` | Wire rate limit on `submitLead` — 30/org/60s; added `requireRole` to `updateLead` |
+| `src/lib/api/dispatch.server.ts` | Wire rate limit on `dispatchLeadMessage` — 20/org/60s; added `requireRole` |
+| `src/lib/api/clinic-config.server.ts` | Added `requireRole` to `saveClinicConfig` |
+| `src/lib/api/resources.server.ts` | Added `requireRole` to `scheduleAppointment` and `createResourceFn` |
+| `src/lib/api/analytics.server.ts` | Added `requireRole` to `getAnalytics` |
+| `src/lib/api/notifications.server.ts` | Added `requireRole(SUPER_ADMIN)` to `triggerQueueProcessing` |
+| `src/lib/import.server.ts` | Added `requireRole` to `bulkImportLeads` |
 | `src/lib/db.server.ts` | 5 new performance indexes |
 | `.github/workflows/ci.yml` | **New** — GitHub Actions CI: `vitest run` on push to main |
+| `Dockerfile` | Added `ENV NITRO_PRESET=node-server` + `ENV NODE_ENV=production` |
+| `docker-compose.yml` | **New** — app + PostgreSQL for local dev |
+| `src/__tests__/rate-limit.test.ts` | **New** — 5 tests for in-memory rate limiter |
+| `src/__tests__/rbac-completeness.test.ts` | **New** — 12 tests verifying role guards on all target functions |
 | `src/__tests__/env-production-guard.test.ts` | **New** — 3 tests for SESSION_SECRET production guard |
 | `src/__tests__/auth-logout.test.ts` | **New** — 1 test for logout clears session cookie |
 | `src/__tests__/e2e-simulation.test.ts` | **New** — 15 E2E lifecycle tests |
-| `src/__tests__/reconciliation.test.ts` | +7 adversarial tests (idempotency, stale replay, partial match) |
+| `src/__tests__/reconciliation.test.ts` | +7 adversarial tests (idempotency, stale replay, partial match); added rate-limit mock |
 | `src/__tests__/encryption.test.ts` | +8 adversarial tests (key rotation, regression, missing org key) |
 | `src/__tests__/tenant-isolation-p0.test.ts` | 22 adversarial tests (P0-1 through P0-6) |
 | `src/__tests__/scheduling-injection.test.ts` | 6 adversarial tests for SQL injection fix + orgId provenance |
-| `src/__tests__/concurrency.test.ts` | Updated to remove `organizationId` from test data |
+| `src/__tests__/concurrency.test.ts` | Updated to remove `organizationId` from test data; added permissions mock |
 | `src/__tests__/notification-queue.test.ts` | Existing queue tests updated for per-tenant dispatch |
-| `docs/release-readiness.md` | Updated: 643 tests, PII descoped, logout added, CI added, known gaps documented |
+| `src/__tests__/clinic-config.test.ts` | Added permissions mock |
+| `src/__tests__/resources.test.ts` | Added permissions mock |
+| `src/__tests__/automation.test.ts` | Added permissions mock |
+| `src/__tests__/dispatch.test.ts` | Added permissions mock |
+| `src/__tests__/analytics.test.ts` | Added permissions mock |
+| `src/__tests__/billing.test.ts` | Added permissions mock |
+| `src/__tests__/import.test.ts` | Added permissions mock |
+| `docs/release-readiness.md` | Updated: 660 tests, all RBAC closed, rate limiting added, Docker fixed, blocker count reduced |
 | `docs/decisions.md` | Added D11: PII Encryption Descoped from v1 Pilot |
 
 ## Test Results
 
-- **643 tests / 56 files** — all passing
+- **660 tests / 58 files** — all passing
 - **Build**: zero errors (only pre-existing `inputValidator()` deprecation warnings)
-- **New tests added**: 54 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 22 tenant isolation P0 adversarial + 6 scheduling injection adversarial + 3 env production guard + 1 auth logout — net after consolidation)
+- **New tests added**: 71 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 22 tenant isolation P0 adversarial + 6 scheduling injection adversarial + 3 env production guard + 1 auth logout + 5 rate limiter + 12 RBAC completeness + 8 existing test mock updates)
 
 ## References
 

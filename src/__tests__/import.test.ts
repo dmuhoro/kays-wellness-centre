@@ -1,4 +1,10 @@
 import { describe, it, expect } from "vitest";
+import { vi } from "vitest";
+
+vi.mock("@/lib/permissions.server", () => ({
+  requireRole: vi.fn(),
+  ROLES: { SUPER_ADMIN: "super_admin", CLINIC_OWNER: "admin", CLINIC_STAFF: "staff" },
+}));
 
 describe("CSV parsing", () => {
   it("parses simple CSV line", async () => {

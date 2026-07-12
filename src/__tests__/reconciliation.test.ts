@@ -24,6 +24,7 @@ vi.mock("@/lib/logger.server", () => ({
 vi.mock("@/lib/audit.server", () => ({ recordAudit: vi.fn(() => Promise.resolve()) }));
 vi.mock("@/lib/session.server", () => ({ getSession: vi.fn(() => ({ userId: 1 })) }));
 vi.mock("@/lib/event-bus.server", () => ({ publishEvent: vi.fn(() => Promise.resolve()) }));
+vi.mock("@/lib/rate-limit.server", () => ({ checkRateLimit: vi.fn(() => true), getRateLimitRemaining: vi.fn(() => ({ remaining: 10, resetMs: 60000 })) }));
 
 describe("M-Pesa Message Parsing", () => {
   beforeEach(() => { vi.clearAllMocks(); });

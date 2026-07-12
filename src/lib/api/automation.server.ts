@@ -5,6 +5,7 @@ import { requireOrg } from "../tenant.server";
 import { enqueueNotification } from "../queue.server";
 import { logger, EVENTS } from "../logger.server";
 import { sendWhatsApp, formatMessage } from "./dispatch.server";
+import { requireRole, ROLES } from "../permissions.server";
 
 export type AutomationStage = "UNTOUCHED" | "TRIAGING" | "SCHEDULED" | "STALLED";
 
@@ -274,6 +275,7 @@ export async function runAutomationOrchestrator(orgId: string): Promise<{
 export const triggerAutomation = createServerFn({ method: "POST" })
   .handler(async () => {
     if (!isDbAvailable()) return { status: "db_unavailable" as const };
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER); } catch { return { status: "forbidden" as const }; }
     const { orgId } = requireOrg();
     const result = await runAutomationOrchestrator(orgId);
     return { status: "ok", ...result };

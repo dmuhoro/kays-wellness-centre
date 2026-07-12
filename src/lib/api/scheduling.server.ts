@@ -4,6 +4,7 @@ import { addDays, addMinutes, format, parse, startOfDay, isAfter, isBefore } fro
 import { getDb, ensureSchema, isDbAvailable, getConcurrentLock, releaseConcurrentLock } from "../db.server";
 import { logger, EVENTS } from "../logger.server";
 import { requireOrg } from "../tenant.server";
+import { requireRole, ROLES } from "../permissions.server";
 
 interface AvailabilityRow {
   day_of_week: number;
@@ -195,6 +196,7 @@ export const bookSlot = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER, ROLES.CLINIC_STAFF); } catch { return { status: "forbidden" as const }; }
     const { orgId } = requireOrg();
     const db = await getDb();
     const lockKey = `slot:${orgId}:${data.appointmentTimestamp}`;
@@ -265,6 +267,7 @@ export const reserveSlot = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER, ROLES.CLINIC_STAFF); } catch { return { status: "forbidden" as const }; }
     const { orgId } = requireOrg();
     const db = await getDb();
     const lockKey = `reserve:${orgId}:${data.appointmentTimestamp}`;

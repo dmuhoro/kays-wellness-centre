@@ -6,6 +6,7 @@ import { getDb, ensureSchema } from "./db.server";
 import { logger, EVENTS } from "./logger.server";
 import { signToken, type SessionPayload } from "./session.server";
 import { getDefaultAdminEmail, getDefaultAdminPassword } from "./env.server";
+import { checkRateLimit } from "./rate-limit.server";
 
 const SESSION_COOKIE = "kwc_session";
 const TOKEN_EXPIRY_MS = 86_400_000;
@@ -72,6 +73,11 @@ export const login = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     await seedDefaultOrgAndAdmin();
+    const email = data.email.toLowerCase().trim();
+    if (!checkRateLimit(`login:${email}`, 5, 60_000)) {
+      logger.warn("Login rate limited", { event: EVENTS.AUTH_FAILURE });
+      return { error: "Too many login attempts. Try again later." };
+    }
     const db = await getDb();
     const users = await db.unsafe<Array<{ id: number; organization_id: string; role: string; password_hash: string }>>(
       "SELECT id, organization_id, role, password_hash FROM users WHERE email = $1",

@@ -8,6 +8,7 @@ import { recordAudit } from "../audit.server";
 import { getSession } from "../session.server";
 import { publishEvent } from "../event-bus.server";
 import { requireRole, ROLES } from "../permissions.server";
+import { checkRateLimit } from "../rate-limit.server";
 
 export type LeadRow = {
   id: number;
@@ -57,6 +58,11 @@ export const submitLead = createServerFn({ method: "POST" })
     }
 
     const { orgId, log } = requireOrg();
+
+    if (!checkRateLimit(`submitLead:${orgId}`, 30, 60_000)) {
+      log.warn("Lead submission rate limited", { event: EVENTS.AUTH_FAILURE, orgId });
+      return { id: null, status: "rate_limited" as const };
+    }
 
     const db = await getDb();
     const start = Date.now();
@@ -191,6 +197,7 @@ export const updateLead = createServerFn({ method: "POST" })
     if (!isDbAvailable()) {
       return { status: "db_unavailable" as const };
     }
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER, ROLES.CLINIC_STAFF); } catch { return { status: "forbidden" as const }; }
     const { orgId, log } = requireOrg();
 
     const db = await getDb();

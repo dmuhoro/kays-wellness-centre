@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { computeAnalytics } from "../analytics.server";
 import { isDbAvailable, getConnectionError } from "../db.server";
 import { logger, EVENTS } from "../logger.server";
+import { requireRole, ROLES } from "../permissions.server";
 
 export const getAnalytics = createServerFn({ method: "GET" }).handler(async () => {
   if (!isDbAvailable()) {
@@ -14,6 +15,7 @@ export const getAnalytics = createServerFn({ method: "GET" }).handler(async () =
   }
 
   try {
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER); } catch { return { status: "forbidden" as const, data: null }; }
     const data = await computeAnalytics();
     return { status: "ok" as const, data };
   } catch (err) {

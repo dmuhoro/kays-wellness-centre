@@ -25,6 +25,11 @@ vi.mock("../lib/queue.server", () => ({
   enqueueNotification: vi.fn().mockResolvedValue({ id: 1, status: "queued" }),
 }));
 
+vi.mock("../lib/permissions.server", () => ({
+  requireRole: vi.fn(),
+  ROLES: { SUPER_ADMIN: "super_admin", CLINIC_OWNER: "admin", CLINIC_STAFF: "staff" },
+}));
+
 describe("dispatch server", () => {
   beforeEach(() => {
     vi.clearAllMocks();

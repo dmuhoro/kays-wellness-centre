@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb, isDbAvailable } from "../db.server";
 import { requireOrg } from "../tenant.server";
 import { logger, EVENTS } from "../logger.server";
+import { requireRole, ROLES } from "../permissions.server";
 
 export interface BusinessHours {
   [day: string]: { open: string; close: string } | null;
@@ -144,6 +145,7 @@ export const saveClinicConfig = createServerFn({ method: "POST" })
   .inputValidator(updateClinicConfigSchema)
   .handler(async ({ data }) => {
     if (!isDbAvailable()) return { status: "db_unavailable" as const };
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER); } catch { return { status: "forbidden" as const }; }
     const { orgId, log } = requireOrg();
     const config = await updateClinicConfig(orgId, data);
     log.info("Clinic config updated", { event: EVENTS.CONFIG_UPDATED });

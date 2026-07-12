@@ -46,6 +46,11 @@ vi.mock("@/lib/tenant.server", () => ({
   })),
 }));
 
+vi.mock("@/lib/permissions.server", () => ({
+  requireRole: vi.fn(),
+  ROLES: { SUPER_ADMIN: "super_admin", CLINIC_OWNER: "admin", CLINIC_STAFF: "staff" },
+}));
+
 describe("bookSlot SQL parameterization", () => {
   beforeEach(() => {
     vi.clearAllMocks();

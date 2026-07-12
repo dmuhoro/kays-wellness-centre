@@ -3,6 +3,7 @@ import { logger, EVENTS } from "./logger.server";
 import { recordAudit } from "./audit.server";
 import { getSession } from "./session.server";
 import { publishEvent } from "./event-bus.server";
+import { checkRateLimit } from "./rate-limit.server";
 
 export interface ReconciliationEntry {
   id: number;
@@ -66,6 +67,10 @@ export async function reconcilePayment(
   orgId: string,
   parsed: ParsedInboundPayment,
 ): Promise<{ status: ReconciliationEntry["status"]; invoiceId?: number; paymentId?: number }> {
+  if (!checkRateLimit(`reconcile:${orgId}`, 10, 60_000)) {
+    logger.warn("Reconciliation rate limited", { event: EVENTS.RECONCILIATION_NO_MATCH, orgId });
+    return { status: "unmatched" };
+  }
   const db = await getDb();
   const lockKey = `reconcile:${orgId}`;
   const acquired = await getConcurrentLock(lockKey);

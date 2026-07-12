@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb, isDbAvailable } from "../db.server";
 import { requireOrg } from "../tenant.server";
 import { logger, EVENTS } from "../logger.server";
+import { requireRole, ROLES } from "../permissions.server";
 
 export interface ResourceRow {
   id: number;
@@ -129,6 +130,7 @@ export const scheduleAppointment = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     if (!isDbAvailable()) return { status: "db_unavailable" as const };
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER, ROLES.CLINIC_STAFF); } catch { return { status: "forbidden" as const }; }
     const { orgId, log } = requireOrg();
     const db = await getDb();
 
@@ -216,6 +218,7 @@ export const createResourceFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     if (!isDbAvailable()) return { status: "db_unavailable" as const };
+    try { requireRole(ROLES.SUPER_ADMIN, ROLES.CLINIC_OWNER); } catch { return { status: "forbidden" as const }; }
     const { orgId, log } = requireOrg();
     const resource = await createResource(orgId, data.name, data.type);
     log.info("Resource created", { event: EVENTS.RESOURCE_CREATED, resourceId: resource.id });

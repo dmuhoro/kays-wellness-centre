@@ -16,6 +16,12 @@ vi.mock("@/lib/tenant.server", () => ({
   requireOrg: vi.fn(() => ({ orgId: "org-1", log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), child: vi.fn() } })),
 }));
 
+vi.mock("@/lib/permissions.server", () => ({
+  requireRole: vi.fn(),
+  ROLES: { SUPER_ADMIN: "super_admin", CLINIC_OWNER: "admin", CLINIC_STAFF: "staff" },
+  canAccessFinance: vi.fn(() => true),
+}));
+
 vi.mock("@/lib/logger.server", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   EVENTS: {
