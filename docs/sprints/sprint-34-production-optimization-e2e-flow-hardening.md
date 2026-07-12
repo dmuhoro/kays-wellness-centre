@@ -2,7 +2,7 @@
 
 ## Summary
 
-Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, and tenant isolation hardening across all server modules. **639 tests / 54 files — all passing.**
+Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, and CI pipeline. **643 tests / 56 files — all passing.**
 
 ## Audit Findings
 
@@ -126,6 +126,8 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 
 | File | Change |
 |------|--------|
+| `src/lib/env.server.ts` | Throws FATAL at boot if `NODE_ENV=production` and `SESSION_SECRET` is default; removed `.min(32)` from Zod schema |
+| `src/lib/auth.server.ts` | Added `logout` server function — `deleteCookie` clears session |
 | `src/lib/encryption.server.ts` | Added `getKeyByVersion`; `decryptPII` uses `payload.keyVersion`; dual-cache in `getActiveKey`/`initializeOrgKey` |
 | `src/lib/messaging.server.ts` | `updateMessageStatus` accepts optional `orgId` |
 | `src/lib/webhooks.server.ts` | `updateDeliveryStatus` accepts optional `orgId`; `webhook_configs` SELECT scoped |
@@ -138,6 +140,9 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 | `src/lib/telemetry.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getMilestoneStats` |
 | `src/lib/api/scheduling.server.ts` | `bookSlot`/`reserveSlot` orgId from `requireOrg()` — removed `organizationId` from input validators; SQL injection fix with bound params |
 | `src/lib/db.server.ts` | 5 new performance indexes |
+| `.github/workflows/ci.yml` | **New** — GitHub Actions CI: `vitest run` on push to main |
+| `src/__tests__/env-production-guard.test.ts` | **New** — 3 tests for SESSION_SECRET production guard |
+| `src/__tests__/auth-logout.test.ts` | **New** — 1 test for logout clears session cookie |
 | `src/__tests__/e2e-simulation.test.ts` | **New** — 15 E2E lifecycle tests |
 | `src/__tests__/reconciliation.test.ts` | +7 adversarial tests (idempotency, stale replay, partial match) |
 | `src/__tests__/encryption.test.ts` | +8 adversarial tests (key rotation, regression, missing org key) |
@@ -145,12 +150,14 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 | `src/__tests__/scheduling-injection.test.ts` | 6 adversarial tests for SQL injection fix + orgId provenance |
 | `src/__tests__/concurrency.test.ts` | Updated to remove `organizationId` from test data |
 | `src/__tests__/notification-queue.test.ts` | Existing queue tests updated for per-tenant dispatch |
+| `docs/release-readiness.md` | Updated: 643 tests, PII descoped, logout added, CI added, known gaps documented |
+| `docs/decisions.md` | Added D11: PII Encryption Descoped from v1 Pilot |
 
 ## Test Results
 
-- **639 tests / 54 files** — all passing
+- **643 tests / 56 files** — all passing
 - **Build**: zero errors (only pre-existing `inputValidator()` deprecation warnings)
-- **New tests added**: 50 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 22 tenant isolation P0 adversarial + 6 scheduling injection adversarial + 2 concurrency updated — net after consolidation)
+- **New tests added**: 54 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 22 tenant isolation P0 adversarial + 6 scheduling injection adversarial + 3 env production guard + 1 auth logout — net after consolidation)
 
 ## References
 

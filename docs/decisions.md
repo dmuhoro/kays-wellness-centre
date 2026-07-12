@@ -172,4 +172,20 @@
 
 ---
 
+## D11: PII Encryption Descoped from v1 Pilot
+
+**Context:** `encryptPII`/`decryptPII` and `encryptFields`/`decryptFields` exist in `encryption.server.ts` with full key rotation support (8 adversarial tests). The infrastructure is solid. However, wiring encryption into every write path (leads, invoices, messages, intake notes) and every read path is a significant refactor that touches the most sensitive data flows.
+
+**Decision:** Descoped from v1 pilot. PII (name, phone, email) stored in plaintext. The encryption infrastructure remains tested and ready. Will be wired into write/read paths in v2.
+
+**Consequence:**
+- Pilot stores PII in plaintext — acceptable for a small pilot with a handful of clinics
+- No data migration needed when encryption is wired in v2 (can encrypt in place)
+- Risk: if the DB is compromised, PII is exposed. Accepted for pilot scope.
+- Infrastructure is production-ready — key rotation, dual-cache, historical decryption all tested
+
+**Status:** Accepted (Sprint 34)
+
+---
+
 *Last updated: Sprint 34*

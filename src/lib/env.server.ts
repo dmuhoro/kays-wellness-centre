@@ -5,7 +5,6 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url("DATABASE_URL must be a valid URL"),
   SESSION_SECRET: z
     .string()
-    .min(32, "SESSION_SECRET must be at least 32 characters")
     .default("dev-secret-change-in-prod"),
   DEFAULT_ADMIN_EMAIL: z.string().email().default("admin@kayswellnesscentre.org"),
   DEFAULT_ADMIN_PASSWORD: z.string().min(6).default("admin0726"),
@@ -36,8 +35,14 @@ function getEnv(): Env {
 
   validated = result.data;
 
-  if (result.data.SESSION_SECRET === "dev-secret-change-in-prod") {
-    console.warn("[env] Using default SESSION_SECRET — set a strong secret in production");
+  if (
+    result.data.NODE_ENV === "production" &&
+    result.data.SESSION_SECRET === "dev-secret-change-in-prod"
+  ) {
+    throw new Error(
+      "[env] FATAL: SESSION_SECRET is the default dev value in production. " +
+        "Set a strong SESSION_SECRET environment variable before deploying.",
+    );
   }
 
   return validated;

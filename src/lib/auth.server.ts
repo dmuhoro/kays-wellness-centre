@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
-import { setCookie } from "@tanstack/react-start/server";
+import { setCookie, deleteCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { getDb, ensureSchema } from "./db.server";
 import { logger, EVENTS } from "./logger.server";
@@ -104,6 +104,13 @@ export const login = createServerFn({ method: "POST" })
       userId: user.id,
     });
     return { success: true, user: { id: user.id, organization_id: user.organization_id, role: user.role } };
+  });
+
+export const logout = createServerFn({ method: "POST" })
+  .handler(async () => {
+    deleteCookie(SESSION_COOKIE, { path: "/" });
+    logger.info("User logged out", { event: EVENTS.AUTH_SUCCESS });
+    return { success: true };
   });
 
 export { seedDefaultOrgAndAdmin };
