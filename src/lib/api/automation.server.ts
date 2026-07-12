@@ -4,7 +4,7 @@ import { getDb, isDbAvailable } from "../db.server";
 import { requireOrg } from "../tenant.server";
 import { enqueueNotification } from "../queue.server";
 import { logger, EVENTS } from "../logger.server";
-import { sendWhatsApp, formatMessage } from "./dispatch.server";
+import { sendWhatsApp, formatMessage, type LanguageCode } from "./dispatch.server";
 import { requireRole, ROLES } from "../permissions.server";
 
 export type AutomationStage = "UNTOUCHED" | "TRIAGING" | "SCHEDULED" | "STALLED";
@@ -111,13 +111,13 @@ export async function processProgressiveFollowup(
   const stage = state.current_stage;
 
   if (stage === "UNTOUCHED") {
-    const lead = await db.unsafe<Array<{ name: string; phone: string }>>(
-      `SELECT name, phone FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
+    const lead = await db.unsafe<Array<{ name: string; phone: string; preferred_language: string }>>(
+      `SELECT name, phone, preferred_language FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
       [leadId, orgId],
     );
     if (lead.length === 0) return { action: "lead_not_found", dispatched: false };
 
-    const message = formatMessage("triage_followup", lead[0].name);
+    const message = formatMessage("triage_followup", lead[0].name, lead[0].preferred_language as LanguageCode);
     const result = await sendWhatsApp(lead[0].phone, message);
 
     const nextAction = new Date(now.getTime() + triageTimeoutMinutes * 60_000);
@@ -154,13 +154,13 @@ export async function processProgressiveFollowup(
       return { action: "stalled", dispatched: false };
     }
 
-    const lead = await db.unsafe<Array<{ name: string; phone: string }>>(
-      `SELECT name, phone FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
+    const lead = await db.unsafe<Array<{ name: string; phone: string; preferred_language: string }>>(
+      `SELECT name, phone, preferred_language FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
       [leadId, orgId],
     );
     if (lead.length === 0) return { action: "lead_not_found", dispatched: false };
 
-    const message = formatMessage("triage_followup", lead[0].name);
+    const message = formatMessage("triage_followup", lead[0].name, lead[0].preferred_language as LanguageCode);
     const result = await sendWhatsApp(lead[0].phone, message);
 
     const nextAction = new Date(now.getTime() + triageTimeoutMinutes * 60_000);
@@ -190,13 +190,13 @@ export async function processProgressiveFollowup(
   }
 
   if (stage === "STALLED") {
-    const lead = await db.unsafe<Array<{ name: string; phone: string }>>(
-      `SELECT name, phone FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
+    const lead = await db.unsafe<Array<{ name: string; phone: string; preferred_language: string }>>(
+      `SELECT name, phone, preferred_language FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
       [leadId, orgId],
     );
     if (lead.length === 0) return { action: "lead_not_found", dispatched: false };
 
-    const message = formatMessage("reminder", lead[0].name);
+    const message = formatMessage("reminder", lead[0].name, lead[0].preferred_language as LanguageCode);
     const result = await sendWhatsApp(lead[0].phone, message);
 
     const nextAction = new Date(now.getTime() + triageTimeoutMinutes * 4 * 60_000);

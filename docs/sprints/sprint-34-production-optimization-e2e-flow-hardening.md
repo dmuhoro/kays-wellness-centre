@@ -2,7 +2,7 @@
 
 ## Summary
 
-Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, CI pipeline, in-memory rate limiting, RBAC completeness (12 guarded functions), Docker build fix, Docker Compose, JWT revocation decision, Google reviews descoped, pilot scope doc, bilingual WhatsApp templates (EN/SW). **666 tests / 58 files — all passing.** Docker build verified (`ca825578b2dc`).
+Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, CI pipeline, in-memory rate limiting, RBAC completeness (12 guarded functions), Docker build fix, Docker Compose, JWT revocation decision, Google reviews descoped, pilot scope doc, bilingual WhatsApp templates across all tiers — manual dispatch and automation (EN/SW). **667 tests / 58 files — all passing.** Docker build verified (`ca825578b2dc`).
 
 ## Audit Findings
 
@@ -137,6 +137,7 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 | `src/lib/queue.server.ts` | SELECT clinic_leads scoped by `organization_id`; `processQueue` accepts optional `tenantId`; `processNotifications` dispatches per-tenant |
 | `src/lib/api/billing.server.ts` | SUM payments + UPDATE invoices scoped by `organization_id`; added `requireRole` to `fetchPayments` |
 | `src/lib/api/automation.server.ts` | SELECT automation_state scoped by `organization_id`; added `requireRole` to `triggerAutomation` |
+| `src/lib/api/automation.server.ts` | 3 automation call sites now SELECT `preferred_language` from `clinic_leads` and pass it to `formatMessage` — bilingual routing complete in all tiers |
 | `src/lib/api/interactions.server.ts` | Correlated subquery scoped by `organization_id` |
 | `src/lib/api/diagnostics.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getQueueTelemetry`, `forceRetryQueueItems`, `getFailedQueueItems` |
 | `src/lib/telemetry.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getMilestoneStats` |
@@ -165,7 +166,7 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 | `src/__tests__/notification-queue.test.ts` | Existing queue tests updated for per-tenant dispatch |
 | `src/__tests__/clinic-config.test.ts` | Added permissions mock |
 | `src/__tests__/resources.test.ts` | Added permissions mock |
-| `src/__tests__/automation.test.ts` | Added permissions mock |
+| `src/__tests__/automation.test.ts` | Added permissions mock; +1 test for Swahili template routing in automation dispatch |
 | `src/__tests__/dispatch.test.ts` | Added permissions mock |
 | `src/__tests__/analytics.test.ts` | Added permissions mock |
 | `src/__tests__/billing.test.ts` | Added permissions mock |
@@ -189,9 +190,9 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 
 ## Test Results
 
-- **666 tests / 58 files** — all passing
+- **667 tests / 58 files** — all passing
 - **Build**: zero errors (only pre-existing `inputValidator()` deprecation warnings)
-- **New tests added**: 77 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 22 tenant isolation P0 adversarial + 6 scheduling injection adversarial + 3 env production guard + 1 auth logout + 5 rate limiter + 12 RBAC completeness + 6 bilingual WhatsApp templates + 8 existing test mock updates)
+- **New tests added**: 78 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 22 tenant isolation P0 adversarial + 6 scheduling injection adversarial + 3 env production guard + 1 auth logout + 5 rate limiter + 12 RBAC completeness + 6 bilingual WhatsApp templates + 1 automation Swahili routing + 8 existing test mock updates)
 
 ## References
 

@@ -33,7 +33,10 @@ vi.mock("@/lib/logger.server", () => ({
 
 vi.mock("@/lib/api/dispatch.server", () => ({
   sendWhatsApp: vi.fn(() => Promise.resolve({ success: true, provider: "log" })),
-  formatMessage: vi.fn((_type: string, name: string) => `Hi ${name}, this is a test message.`),
+  formatMessage: vi.fn((type: string, name: string, language?: string) => {
+    if (language === "sw") return `Habari ${name}, ujumbe wa mtihani.`;
+    return `Hi ${name}, this is a test message.`;
+  }),
 }));
 
 describe("Automation Stage Transitions", () => {
@@ -133,6 +136,34 @@ describe("Automation Stage Transitions", () => {
     const leads = await getLeadsNeedingFollowup("org-1", 45);
     expect(Array.isArray(leads)).toBe(true);
     expect(leads.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("UNTOUCHED lead with preferred_language=sw receives Swahili triage followup", async () => {
+    const { formatMessage } = await import("@/lib/api/dispatch.server");
+
+    mockDb.unsafe
+      .mockResolvedValueOnce([{ current_stage: "UNTOUCHED", retry_count: 0 }])
+      .mockResolvedValueOnce([{ name: "Halima", phone: "+254700000010", preferred_language: "sw" }])
+      .mockResolvedValueOnce([{
+        id: 1, lead_id: 2, organization_id: "org-1", current_stage: "TRIAGING",
+        last_interaction_at: null, next_action_scheduled_at: new Date(Date.now() + 45 * 60_000).toISOString(),
+        retry_count: 0, context_snapshot: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      }]);
+
+    const { processProgressiveFollowup } = await import("@/lib/api/automation.server");
+
+    mockDb.unsafe.mockReset();
+    mockDb.unsafe
+      .mockResolvedValueOnce([{ lead_id: 2, current_stage: "UNTOUCHED", retry_count: 0, last_interaction_at: new Date(Date.now() - 60 * 60_000).toISOString() }])
+      .mockResolvedValueOnce([{ name: "Halima", phone: "+254700000010", preferred_language: "sw" }])
+      .mockResolvedValueOnce([{ triage_timeout_minutes: 45 }])
+      .mockResolvedValueOnce([{ lead_id: 2, current_stage: "UNTOUCHED", retry_count: 0, last_interaction_at: new Date(Date.now() - 60 * 60_000).toISOString() }])
+      .mockResolvedValueOnce([{ name: "Halima", phone: "+254700000010", preferred_language: "sw" }]);
+
+    const result = await processProgressiveFollowup(2, "org-1", 45);
+    expect(result.action).toBe("first_followup");
+    expect(result.dispatched).toBe(true);
+    expect(formatMessage).toHaveBeenCalledWith("triage_followup", "Halima", "sw");
   });
 
   it("ensureAutomationState creates row if not exists", async () => {
