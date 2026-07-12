@@ -1,4 +1,5 @@
 export type TriagePriority = "low" | "medium" | "high";
+export type LanguageCode = "en" | "sw";
 export type CaptureChannel = "Web_Premium_Front_Door";
 export type SubmitStatus = "idle" | "submitting" | "success" | "error";
 
@@ -12,6 +13,7 @@ export interface ClinicOSLeadPacket {
     service: string;
     phone?: string;
     channel?: string;
+    preferred_language?: LanguageCode;
   };
   triage_priority: TriagePriority;
   device_telemetry: {

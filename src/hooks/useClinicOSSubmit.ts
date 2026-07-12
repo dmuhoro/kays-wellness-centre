@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ClinicOSLeadPacket, SubmitStatus } from "./clinic-os-types";
+import type { ClinicOSLeadPacket, SubmitStatus, LanguageCode } from "./clinic-os-types";
 import { computeTriagePriority, sanitizeInput, collectTelemetry } from "./clinic-os-types";
 import { submitLead } from "@/lib/api/leads.server";
 import { LEADS_QUERY_KEY } from "./useLeads";
@@ -74,6 +74,7 @@ async function transmitPacket(packet: ClinicOSLeadPacket): Promise<void> {
       service: packet.formData.service,
       channel: packet.formData.channel || "",
       priority: packet.triage_priority,
+      preferred_language: packet.formData.preferred_language || "en",
       raw_payload: packet,
     },
   });
@@ -90,6 +91,7 @@ function buildPacket(input: {
   service: string;
   phone?: string;
   channel?: string;
+  preferred_language?: LanguageCode;
 }): ClinicOSLeadPacket {
   const name = sanitizeInput(input.name);
   const email = sanitizeInput(input.email).toLowerCase();
@@ -98,7 +100,7 @@ function buildPacket(input: {
     Client_Lead_Source: "Online_Front_Door",
     Payload_Timestamp: new Date().toISOString(),
     capture_channel: "Web_Premium_Front_Door",
-    formData: { name, email, service, phone: input.phone, channel: input.channel },
+    formData: { name, email, service, phone: input.phone, channel: input.channel, preferred_language: input.preferred_language },
     triage_priority: computeTriagePriority(service),
     device_telemetry: collectTelemetry(),
   };
@@ -161,6 +163,7 @@ export function useClinicOSSubmit() {
       service: string;
       phone?: string;
       channel?: string;
+      preferred_language?: LanguageCode;
     }): Promise<SubmitStatus> => {
       setStatus("submitting");
       const packet = buildPacket(input);
@@ -196,6 +199,7 @@ export function useClinicOSSubmit() {
             service: packet.formData.service,
             channel: packet.formData.channel || "",
             priority: packet.triage_priority,
+            preferred_language: packet.formData.preferred_language || "en",
             raw_payload: packet,
           },
         });

@@ -106,6 +106,7 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         channel VARCHAR(50) NOT NULL DEFAULT '',
         priority VARCHAR(20) NOT NULL DEFAULT 'medium',
         status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        preferred_language VARCHAR(10) NOT NULL DEFAULT 'en',
         raw_payload JSONB,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
@@ -242,6 +243,16 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         await db.unsafe(`
           ALTER TABLE clinic_leads ADD COLUMN provider_id INTEGER REFERENCES resources(id);
           ALTER TABLE clinic_leads ADD COLUMN room_id INTEGER REFERENCES resources(id);
+        `);
+      }
+
+      const hasLanguageCol = await db.unsafe(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'clinic_leads' AND column_name = 'preferred_language'
+      `);
+      if (hasLanguageCol.length === 0) {
+        await db.unsafe(`
+          ALTER TABLE clinic_leads ADD COLUMN preferred_language VARCHAR(10) NOT NULL DEFAULT 'en';
         `);
       }
 

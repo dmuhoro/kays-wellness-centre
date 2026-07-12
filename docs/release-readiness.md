@@ -19,7 +19,7 @@
 
 | # | Capability | Verdict | Test / Verification Step |
 |---|-----------|---------|------------------------|
-| 1 | Test suite passes | **PASS** | `npm test` — 660 tests / 58 files, all passing (Sprint 34) |
+| 1 | Test suite passes | **PASS** | `npm test` — 666 tests / 58 files, all passing (Sprint 34) |
 | 2 | Production build succeeds | **PASS** | `npm run build` — zero errors (Sprint 34) |
 | 3 | No TypeScript errors | **PASS** | `npx tsc --noEmit` — verified Sprint 34 |
 

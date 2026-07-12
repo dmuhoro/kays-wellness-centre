@@ -34,17 +34,18 @@ Daily login/logout for every user. No account creation — admin pre-creates sta
 
 ## Workflow 2: Lead Intake (Receptionist / Front Desk)
 
-Record every new patient inquiry — walk-in, phone, or online — as a lead in the system. When a lead is created, a WhatsApp confirmation message is automatically dispatched to the patient's phone.
+Record every new patient inquiry — walk-in, phone, or online — as a lead in the system. The receptionist selects the patient's preferred language (English or Swahili). When a lead is created, a WhatsApp confirmation message is automatically dispatched in that language.
 
 | Step | User Action | System Behavior | Verified? |
 |------|------------|----------------|-----------|
 | 2.1 | Click "New Lead" or use the public contact form | `submitLead` createServerFn creates a `clinic_leads` row with channel classification | ☐ |
-| 2.2 | Enter name, phone, email, service of interest | Rate-limited (30/org/60s); data validated via Zod | ☐ |
-| 2.3 | **WhatsApp confirmation sent automatically** | `dispatchLeadMessage` fires `confirmation` template to patient's phone via Facebook Graph API; rate-limited (20/org/60s) | ☐ |
-| 2.4 | View the pipeline board | 6-stage kanban rendered (new → contacted → scheduled → checked_in → converted / lost) | ☐ |
-| 2.5 | Click a lead to see full details | Lead detail view with activity history | ☐ |
-| 2.6 | Update lead stage (e.g., contacted → scheduled) | `updateLeadStage` function; stage is persisted; available to staff role | ☐ |
-| 2.7 | Update lead fields (e.g., correct phone number) | `updateLead` — gated to staff/owner/admin | ☐ |
+| 2.2 | Select patient's preferred language (EN / SW) | Receptionist picks English or Swahili; stored as `preferred_language` on lead record | ☐ |
+| 2.3 | Enter name, phone, email, service of interest | Rate-limited (30/org/60s); data validated via Zod | ☐ |
+| 2.4 | **WhatsApp confirmation sent in patient's language** | `dispatchLeadMessage` fires `confirmation` template in English or Swahili matching `preferred_language`; rate-limited (20/org/60s) | ☐ |
+| 2.5 | View the pipeline board | 6-stage kanban rendered (new → contacted → scheduled → checked_in → converted / lost) | ☐ |
+| 2.6 | Click a lead to see full details | Lead detail view with activity history | ☐ |
+| 2.7 | Update lead stage (e.g., contacted → scheduled) | `updateLeadStage` function; stage is persisted; available to staff role | ☐ |
+| 2.8 | Update lead fields (e.g., correct phone number) | `updateLead` — gated to staff/owner/admin | ☐ |
 
 **Tests:** `marketing-leads.test.ts` (37 tests — source classification, stage transitions), `pipeline-board.test.ts`, `submit-lead.test.ts`, `dispatch.test.ts` (WhatsApp dispatch), `messaging.test.ts` (message ledger), `rate-limit.test.ts` (30/org/60s + 20/org/60s)
 
@@ -52,7 +53,7 @@ Record every new patient inquiry — walk-in, phone, or online — as a lead in 
 
 **Rate limits:** 30 lead submissions + 20 WhatsApp dispatches per org per 60s. Manual entry won't hit these.
 
-> **Why WhatsApp is in scope:** This is the feature Kay will notice and value immediately. A patient who walks in or calls gets an instant WhatsApp confirmation — professional, immediate, and frictionless. The rest of the WhatsApp stack (inbound webhooks, automation triggers, media ingestion) is infrastructure she won't see yet. Outbound confirmation/reminder is the visible value; everything else comes later.
+> **Why WhatsApp is in scope:** This is the feature Kay will notice and value immediately. A patient who walks in or calls gets an instant WhatsApp confirmation in their preferred language — professional, immediate, and frictionless. Bilingual support (English/Swahili) means the clinic can serve both language communities from day one. The rest of the WhatsApp stack (inbound webhooks, automation triggers, media ingestion) is infrastructure she won't see yet. Outbound confirmation/reminder is the visible value; everything else comes later.
 
 ---
 
@@ -194,9 +195,10 @@ Verify the system is running correctly.
 | 3 | SESSION_SECRET production guard | 10 | `env-production-guard.test.ts` | 14 |
 | 4 | Lead intake + pipeline board | 2 | `marketing-leads.test.ts`, `pipeline-board.test.ts`, `submit-lead.test.ts` | 61-62 |
 | 5 | Lead update (staff role) | 2 | `rbac-completeness.test.ts` | 20 |
-| 6 | Lead rate limiting (30/org/60s) | 2 | `rate-limit.test.ts` | 41 |
-| 7 | WhatsApp outbound — confirmation (on lead create) | 2 | `dispatch.test.ts`, `messaging.test.ts`, `rate-limit.test.ts` | 28, 39, 43 |
-| 8 | Slot generation | 3 | `slot-generation.test.ts` | 34 |
+| 6 | Lead language selection (EN/SW) | 2 | — (UI field on BookingWidget) | — |
+| 7 | Lead rate limiting (30/org/60s) | 2 | `rate-limit.test.ts` | 41 |
+| 8 | WhatsApp outbound — bilingual confirmation (on lead create) | 2 | `dispatch.test.ts`, `messaging.test.ts`, `rate-limit.test.ts` | 28, 39, 43 |
+| 9 | Slot generation | 3 | `slot-generation.test.ts` | 34 |
 | 9 | Slot reservation with TTL | 3 | `concurrency.test.ts` | 36 |
 | 10 | WhatsApp outbound — reminder (on booking) | 3 | `dispatch.test.ts`, `messaging.test.ts` | 28, 39 |
 | 11 | Double-booking prevention | 3 | `concurrency.test.ts` | 35 |

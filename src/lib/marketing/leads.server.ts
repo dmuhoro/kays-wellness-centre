@@ -17,6 +17,7 @@ export interface InboundLeadPayload {
   email?: string;
   service?: string;
   source: LeadSource;
+  preferred_language?: string;
   message?: string;
   metadata?: Record<string, unknown>;
 }
@@ -118,8 +119,8 @@ export async function ingestInboundLead(payload: InboundLeadPayload): Promise<Un
     created_at: string;
   }>>(
     `INSERT INTO clinic_leads
-       (name, phone, email, service, channel, priority, status, organization_id, raw_payload)
-     VALUES ($1, $2, $3, $4, $5, 'medium', 'new', $6, $7)
+       (name, phone, email, service, channel, priority, preferred_language, status, organization_id, raw_payload)
+     VALUES ($1, $2, $3, $4, $5, 'medium', $6, 'new', $7, $8)
      RETURNING id, name, phone, email, service, channel, priority, status, created_at`,
     [
       payload.name,
@@ -127,6 +128,7 @@ export async function ingestInboundLead(payload: InboundLeadPayload): Promise<Un
       payload.email ?? "",
       payload.service ?? "",
       source,
+      payload.preferred_language ?? "en",
       payload.orgId,
       JSON.stringify({ ...payload.metadata, originalSource: payload.source, message: payload.message }),
     ],

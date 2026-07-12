@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Loader2,
   Mail,
+  Languages,
 } from "lucide-react";
 import { useClinicOSSubmit } from "@/hooks/useClinicOSSubmit";
 
@@ -37,6 +38,7 @@ export function BookingWidget() {
   const [channel, setChannel] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [language, setLanguage] = useState<"en" | "sw">("en");
 
   const selectedService = services.find((s) => s.id === service);
   const selectedChannel = channels.find((c) => c.id === channel);
@@ -51,6 +53,7 @@ export function BookingWidget() {
       email,
       service,
       channel,
+      preferred_language: language,
     });
     if (result === "success") {
       setStep(4);
@@ -230,6 +233,29 @@ export function BookingWidget() {
                 className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-border bg-background focus:border-primary outline-none"
                 placeholder="you@example.com"
               />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-semibold mb-2 block">Preferred language</label>
+            <div className="relative flex gap-2">
+              <button
+                type="button"
+                onClick={() => setLanguage("en")}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all ${
+                  language === "en" ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/40"
+                }`}
+              >
+                <Languages className="size-4" /> English
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage("sw")}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border transition-all ${
+                  language === "sw" ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/40"
+                }`}
+              >
+                <Languages className="size-4" /> Kiswahili
+              </button>
             </div>
           </div>
           <div className="rounded-xl bg-secondary/60 p-4 text-sm">

@@ -2,7 +2,7 @@
 
 ## Summary
 
-Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, CI pipeline, in-memory rate limiting, RBAC completeness (12 guarded functions), Docker build fix, Docker Compose, JWT revocation decision, Google reviews descoped, pilot scope doc. **660 tests / 58 files — all passing.** Docker build verified (`ca825578b2dc`).
+Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, CI pipeline, in-memory rate limiting, RBAC completeness (12 guarded functions), Docker build fix, Docker Compose, JWT revocation decision, Google reviews descoped, pilot scope doc, bilingual WhatsApp templates (EN/SW). **666 tests / 58 files — all passing.** Docker build verified (`ca825578b2dc`).
 
 ## Audit Findings
 
@@ -173,13 +173,25 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 | `docs/release-readiness.md` | Updated: 660 tests, all RBAC closed, rate limiting added, Docker fixed, blocker count reduced, Google reviews descoped from pilot |
 | `docs/decisions.md` | Added D11: PII Encryption Descoped from v1 Pilot; D12: JWT Revocation Not Supported |
 | `docs/pilot-scope-day-1.md` | **New** — 14-day pilot feature scope with 10 workflows, cross-referenced against release-readiness. WhatsApp outbound (confirmation/reminder) included; inbound webhooks, automation triggers, media storage out of scope. |
+| `src/lib/db.server.ts` | Added `preferred_language` column to `clinic_leads` (CREATE TABLE + ALTER TABLE) |
+| `src/lib/api/dispatch.server.ts` | Bilingual `MESSAGE_TEMPLATES` (`{ en, sw }`), `formatMessage` accepts `LanguageCode`, dispatch reads lead's language |
+| `src/lib/api/leads.server.ts` | Added `preferred_language` to Zod schema, INSERT, SELECT, `LeadRow` type |
+| `src/lib/queue.server.ts` | `dispatchNotification` reads `preferred_language` and passes to `formatMessage` |
+| `src/lib/marketing/leads.server.ts` | Added `preferred_language` to `InboundLeadPayload` and `ingestInboundLead` INSERT |
+| `src/hooks/clinic-os-types.ts` | Added `LanguageCode` type and `preferred_language` to `ClinicOSLeadPacket` |
+| `src/hooks/useClinicOSSubmit.ts` | Propagates `preferred_language` through `buildPacket` → `transmitPacket` → `submitLead` |
+| `src/components/site/BookingWidget.tsx` | Added language selector (EN/SW toggle) to step 3 of booking form |
+| `src/__tests__/dispatch.test.ts` | 11 tests (6 new bilingual assertions + 5 existing) |
+| `docs/pilot-scope-day-1.md` | Workflow 2 includes language selection step; summary table updated |
+| `docs/release-readiness.md` | Test count updated to 666; WhatsApp verification noted |
+| `docs/sprints/sprint-34-*.md` | Updated with bilingual templates, test count 666, pilot scope doc |
 | `docs/sprints/sprint-34-*.md` | Updated with Docker build result, Google descope, lru-cache fix, pilot scope doc |
 
 ## Test Results
 
-- **660 tests / 58 files** — all passing
+- **666 tests / 58 files** — all passing
 - **Build**: zero errors (only pre-existing `inputValidator()` deprecation warnings)
-- **New tests added**: 71 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 22 tenant isolation P0 adversarial + 6 scheduling injection adversarial + 3 env production guard + 1 auth logout + 5 rate limiter + 12 RBAC completeness + 8 existing test mock updates)
+- **New tests added**: 77 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 22 tenant isolation P0 adversarial + 6 scheduling injection adversarial + 3 env production guard + 1 auth logout + 5 rate limiter + 12 RBAC completeness + 6 bilingual WhatsApp templates + 8 existing test mock updates)
 
 ## References
 

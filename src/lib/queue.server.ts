@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { getDb, withDb } from "./db.server";
 import { logger, EVENTS } from "./logger.server";
-import { sendWhatsApp, formatMessage, type MessageType } from "./api/dispatch.server";
+import { sendWhatsApp, formatMessage, type MessageType, type LanguageCode } from "./api/dispatch.server";
 
 export async function ensureQueueSchema(): Promise<boolean> {
   try {
@@ -112,8 +112,8 @@ export async function dispatchNotification({
 
   if (eventType === "lead_created" || eventType.startsWith("msg_")) {
     const db = await getDb();
-    const rows = await db.unsafe<Array<{ name: string; phone: string }>>(
-      `SELECT name, phone FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
+    const rows = await db.unsafe<Array<{ name: string; phone: string; preferred_language: string }>>(
+      `SELECT name, phone, preferred_language FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
       [leadId, tenantId],
     );
 
@@ -144,7 +144,7 @@ export async function dispatchNotification({
       }
     }
 
-    const message = formatMessage(messageType, lead.name, lead.phone);
+    const message = formatMessage(messageType, lead.name, lead.preferred_language as LanguageCode);
     const result = await sendWhatsApp(lead.phone, message);
     return result;
   }

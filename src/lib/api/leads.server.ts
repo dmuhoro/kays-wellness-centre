@@ -19,6 +19,7 @@ export type LeadRow = {
   channel: string;
   priority: string;
   status: string;
+  preferred_language: string;
   organization_id: string;
   appointment_timestamp: string | null;
   provider_id: number | null;
@@ -37,6 +38,7 @@ const submitSchema = z.object({
   service: z.string().max(100).optional().default(""),
   channel: z.string().max(50).optional().default(""),
   priority: z.enum(["low", "medium", "high"]).optional().default("medium"),
+  preferred_language: z.enum(["en", "sw"]).optional().default("en"),
   appointment_timestamp: z.string().datetime().optional().nullable(),
   raw_payload: z.any().optional(),
 });
@@ -84,8 +86,8 @@ export const submitLead = createServerFn({ method: "POST" })
     }
 
     const result = await db.unsafe(
-      `INSERT INTO clinic_leads (name, phone, email, service, channel, priority, organization_id, appointment_timestamp, raw_payload)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+      `INSERT INTO clinic_leads (name, phone, email, service, channel, priority, preferred_language, organization_id, appointment_timestamp, raw_payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
       [
         data.name.trim(),
         data.phone.trim(),
@@ -93,6 +95,7 @@ export const submitLead = createServerFn({ method: "POST" })
         data.service.trim(),
         data.channel.trim(),
         data.priority,
+        data.preferred_language,
         orgId,
         data.appointment_timestamp || null,
         data.raw_payload ? JSON.stringify(data.raw_payload) : null,
@@ -170,7 +173,7 @@ export const fetchLeads = createServerFn({ method: "GET" })
     const db = await getDb();
     const start = Date.now();
     const rows = await db.unsafe<LeadRow[]>(
-      `SELECT id, name, phone, email, service, channel, priority, status, organization_id, appointment_timestamp, provider_id, room_id, created_at
+      `SELECT id, name, phone, email, service, channel, priority, status, preferred_language, organization_id, appointment_timestamp, provider_id, room_id, created_at
        FROM clinic_leads
        WHERE organization_id = $1
        ORDER BY created_at DESC LIMIT 100`,

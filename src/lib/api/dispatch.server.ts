@@ -8,17 +8,47 @@ import { checkRateLimit } from "../rate-limit.server";
 import { requireRole, ROLES } from "../permissions.server";
 
 export type MessageType = "confirmation" | "triage_followup" | "reminder";
+export type LanguageCode = "en" | "sw";
 
-const MESSAGE_TEMPLATES: Record<MessageType, (name: string) => string> = {
-  confirmation: (name) =>
-    `Hi ${name}, your appointment at Kay's Wellness Centre has been confirmed. ` +
-    `Please arrive 15 minutes early. Reply STOP to opt out.`,
-  triage_followup: (name) =>
-    `Hi ${name}, this is Kay's Wellness Centre following up on your recent inquiry. ` +
-    `Our care team is reviewing your case and will reach out shortly. Reply STOP to opt out.`,
-  reminder: (name) =>
-    `Reminder: You have an appointment at Kay's Wellness Centre tomorrow. ` +
-    `Please call us to confirm or reschedule. Reply STOP to opt out.`,
+type TemplateFn = (name: string) => string;
+
+/*
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  HEADSUP — Swahili copy below needs native speaker review              ║
+ * ║                                                                        ║
+ * ║  I (opencode) am an LLM, not a fluent Swahili speaker. The Swahili     ║
+ * ║  translations below are my best attempt for a physiotherapy clinic     ║
+ * ║  but may not capture the right clinical/formal tone for Kenyan         ║
+ * ║  patients. Have a native Swahili speaker review these before           ║
+ * ║  sending to real patients. Tone matters — a literal translation can    ║
+ * ║  read wrong in a health context.                                      ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ */
+const MESSAGE_TEMPLATES: Record<MessageType, Record<LanguageCode, TemplateFn>> = {
+  confirmation: {
+    en: (name) =>
+      `Hi ${name}, your appointment at Kay's Wellness Centre has been confirmed. ` +
+      `Please arrive 15 minutes early. Reply STOP to opt out.`,
+    sw: (name) =>
+      `Habari ${name}, miadi yako katika Kay's Wellness Centre imethibitishwa. ` +
+      `Tafadhali fika dakika 15 kabla ya muda. Tuma STOP kuacha kupokea ujumbe.`,
+  },
+  triage_followup: {
+    en: (name) =>
+      `Hi ${name}, this is Kay's Wellness Centre following up on your recent inquiry. ` +
+      `Our care team is reviewing your case and will reach out shortly. Reply STOP to opt out.`,
+    sw: (name) =>
+      `Habari ${name}, ni Kay's Wellness Centre tukifuatilia swali lako la hivi karibuni. ` +
+      `Timu yetu inaangalia kesi yako na itawasiliana nawe hivi karibuni. Tuma STOP kuacha kupokea ujumbe.`,
+  },
+  reminder: {
+    en: (name) =>
+      `Reminder: You have an appointment at Kay's Wellness Centre tomorrow. ` +
+      `Please call us to confirm or reschedule. Reply STOP to opt out.`,
+    sw: (name) =>
+      `Kikumbusho: Una miadi katika Kay's Wellness Centre kesho. ` +
+      `Tafadhali tupigie ili kuthibitisha au kubadilisha ratiba. Tuma STOP kuacha kupokea ujumbe.`,
+  },
 };
 
 export async function sendWhatsApp(
@@ -80,8 +110,9 @@ export async function sendWhatsApp(
   }
 }
 
-export function formatMessage(type: MessageType, name: string, phone?: string): string {
-  return MESSAGE_TEMPLATES[type](name);
+export function formatMessage(type: MessageType, name: string, language?: LanguageCode): string {
+  const lang = language === "sw" ? "sw" : "en";
+  return MESSAGE_TEMPLATES[type][lang](name);
 }
 
 export const dispatchLeadMessage = createServerFn({ method: "POST" })
@@ -106,8 +137,8 @@ export const dispatchLeadMessage = createServerFn({ method: "POST" })
 
     const db = await getDb();
 
-    const rows = await db.unsafe<Array<{ name: string; phone: string; service: string }>>(
-      `SELECT name, phone, service FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
+    const rows = await db.unsafe<Array<{ name: string; phone: string; service: string; preferred_language: string }>>(
+      `SELECT name, phone, service, preferred_language FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
       [data.leadId, orgId],
     );
 
@@ -120,7 +151,7 @@ export const dispatchLeadMessage = createServerFn({ method: "POST" })
     }
 
     const lead = rows[0];
-    const message = formatMessage(data.messageType, lead.name, lead.phone);
+    const message = formatMessage(data.messageType, lead.name, lead.preferred_language as LanguageCode);
 
     const result = await sendWhatsApp(lead.phone, message);
 
