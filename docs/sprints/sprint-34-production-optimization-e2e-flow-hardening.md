@@ -144,3 +144,4 @@ The `bookSlot` UPDATE at line 240 interpolated `leadId` and `organizationId` dir
 
 - **Architecture doc**: [`docs/architecture.md`](../architecture.md) — full system architecture generated from verified source code (request lifecycle, auth flow, every server file one-liner, DB schema, route structure, known gaps, test inventory)
 - **Security doc**: [`docs/security.md`](../security.md) — session lifecycle, env validation, PII redaction, and honest assessment of admin auth model limitations (PasscodeGate, no brute-force protection, no token revocation, no logout)
+- **Agent rules**: [`AGENTS.md`](../../AGENTS.md) — 9 rules for all agents working in this repo (generated files, tenant-scoping docs, test requirements, dependency justification, diagnostic test marking)
