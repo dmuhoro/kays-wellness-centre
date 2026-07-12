@@ -145,30 +145,59 @@ export async function updateDeliveryStatus(
   responseCode?: number,
   responseTimeMs?: number,
   errorMessage?: string,
+  orgId?: string,
 ): Promise<void> {
   const db = await getDb();
   if (status === "success") {
-    await db.unsafe(
-      `UPDATE webhook_deliveries SET status = $1, response_code = $2, response_time_ms = $3
-       WHERE id = $4`,
-      [status, responseCode ?? null, responseTimeMs ?? null, deliveryId],
-    );
+    if (orgId) {
+      await db.unsafe(
+        `UPDATE webhook_deliveries SET status = $1, response_code = $2, response_time_ms = $3
+         WHERE id = $4 AND organization_id = $5`,
+        [status, responseCode ?? null, responseTimeMs ?? null, deliveryId, orgId],
+      );
+    } else {
+      await db.unsafe(
+        `UPDATE webhook_deliveries SET status = $1, response_code = $2, response_time_ms = $3
+         WHERE id = $4`,
+        [status, responseCode ?? null, responseTimeMs ?? null, deliveryId],
+      );
+    }
   } else if (status === "retrying") {
-    await db.unsafe(
-      `UPDATE webhook_deliveries
-       SET status = $1, retry_count = retry_count + 1,
-           next_retry_at = CURRENT_TIMESTAMP + (POWER(2, retry_count) || ' minutes')::interval,
-           last_error = $2
-       WHERE id = $3`,
-      [status, errorMessage ?? null, deliveryId],
-    );
+    if (orgId) {
+      await db.unsafe(
+        `UPDATE webhook_deliveries
+         SET status = $1, retry_count = retry_count + 1,
+             next_retry_at = CURRENT_TIMESTAMP + (POWER(2, retry_count) || ' minutes')::interval,
+             last_error = $2
+         WHERE id = $3 AND organization_id = $4`,
+        [status, errorMessage ?? null, deliveryId, orgId],
+      );
+    } else {
+      await db.unsafe(
+        `UPDATE webhook_deliveries
+         SET status = $1, retry_count = retry_count + 1,
+             next_retry_at = CURRENT_TIMESTAMP + (POWER(2, retry_count) || ' minutes')::interval,
+             last_error = $2
+         WHERE id = $3`,
+        [status, errorMessage ?? null, deliveryId],
+      );
+    }
   } else {
-    await db.unsafe(
-      `UPDATE webhook_deliveries
-       SET status = $1, response_code = $2, response_time_ms = $3, error_message = $4
-       WHERE id = $5`,
-      [status, responseCode ?? null, responseTimeMs ?? null, errorMessage ?? null, deliveryId],
-    );
+    if (orgId) {
+      await db.unsafe(
+        `UPDATE webhook_deliveries
+         SET status = $1, response_code = $2, response_time_ms = $3, error_message = $4
+         WHERE id = $5 AND organization_id = $6`,
+        [status, responseCode ?? null, responseTimeMs ?? null, errorMessage ?? null, deliveryId, orgId],
+      );
+    } else {
+      await db.unsafe(
+        `UPDATE webhook_deliveries
+         SET status = $1, response_code = $2, response_time_ms = $3, error_message = $4
+         WHERE id = $5`,
+        [status, responseCode ?? null, responseTimeMs ?? null, errorMessage ?? null, deliveryId],
+      );
+    }
   }
 }
 
@@ -313,8 +342,8 @@ export async function retryPendingDeliveries(orgId: string): Promise<number> {
   let retried = 0;
   for (const delivery of pending) {
     const config = await db.unsafe<{ url: string; secret: string }[]>(
-      `SELECT url, secret FROM webhook_configs WHERE id = $1`,
-      [delivery.webhook_config_id],
+      `SELECT url, secret FROM webhook_configs WHERE id = $1 AND organization_id = $2`,
+      [delivery.webhook_config_id, orgId],
     );
     if (!config[0]) continue;
 

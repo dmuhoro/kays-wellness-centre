@@ -151,8 +151,8 @@ export async function reconcilePayment(
     );
 
     await db.unsafe(
-      `UPDATE invoices SET status = 'paid', paid_at = CURRENT_TIMESTAMP WHERE id = $1`,
-      [matchedInvoice.id],
+      `UPDATE invoices SET status = 'paid', paid_at = CURRENT_TIMESTAMP WHERE id = $1 AND organization_id = $2`,
+      [matchedInvoice.id, orgId],
     );
 
     const [log] = await db.unsafe<ReconciliationEntry[]>(

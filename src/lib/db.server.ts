@@ -568,6 +568,18 @@ export async function ensureSchema(multiTenant = false): Promise<boolean> {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(organization_id)
       );
+
+      -- Sprint 34: performance indexes for multi-tenant queries
+      CREATE INDEX IF NOT EXISTS idx_satisfaction_prompts_lead_cooldown
+        ON satisfaction_prompts (lead_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_clinic_leads_org_status
+        ON clinic_leads (organization_id, status);
+      CREATE INDEX IF NOT EXISTS idx_invoices_lead_org
+        ON invoices (lead_id, organization_id);
+      CREATE INDEX IF NOT EXISTS idx_automation_state_org
+        ON automation_state (organization_id, lead_id);
+      CREATE INDEX IF NOT EXISTS idx_queue_tenant_status
+        ON notification_queue (tenant_id, status, next_retry_at);
     `);
 
     return true;

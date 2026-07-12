@@ -27,8 +27,8 @@ export async function ensureAutomationState(
 ): Promise<AutomationStateRow> {
   const db = await getDb();
   const existing = await db.unsafe<AutomationStateRow[]>(
-    `SELECT * FROM automation_state WHERE lead_id = $1`,
-    [leadId],
+    `SELECT * FROM automation_state WHERE lead_id = $1 AND organization_id = $2`,
+    [leadId, orgId],
   );
   if (existing.length > 0) return existing[0];
 

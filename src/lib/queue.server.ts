@@ -113,8 +113,8 @@ export async function dispatchNotification({
   if (eventType === "lead_created" || eventType.startsWith("msg_")) {
     const db = await getDb();
     const rows = await db.unsafe<Array<{ name: string; phone: string }>>(
-      `SELECT name, phone FROM clinic_leads WHERE id = $1`,
-      [leadId],
+      `SELECT name, phone FROM clinic_leads WHERE id = $1 AND organization_id = $2`,
+      [leadId, tenantId],
     );
 
     if (rows.length === 0) {

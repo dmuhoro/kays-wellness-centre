@@ -161,16 +161,16 @@ export async function recordPayment(
     const payment = paymentRows[0];
 
     const paidRows = await db.unsafe<Array<{ total: number }>>(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE invoice_id = $1`,
-      [invoiceId],
+      `SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE invoice_id = $1 AND organization_id = $2`,
+      [invoiceId, orgId],
     );
     const totalPaid = paidRows[0]?.total ?? 0;
     const fullyPaid = totalPaid >= invoice.total_amount;
 
     if (fullyPaid) {
       await db.unsafe(
-        `UPDATE invoices SET status = 'paid', paid_at = CURRENT_TIMESTAMP WHERE id = $1`,
-        [invoiceId],
+        `UPDATE invoices SET status = 'paid', paid_at = CURRENT_TIMESTAMP WHERE id = $1 AND organization_id = $2`,
+        [invoiceId, orgId],
       );
       logger.info("Invoice fully paid", {
         event: EVENTS.INVOICE_PAID,

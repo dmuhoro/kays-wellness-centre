@@ -147,18 +147,34 @@ export async function updateMessageStatus(
   messageId: number,
   status: string,
   externalId?: string,
+  orgId?: string,
 ): Promise<void> {
   const db = await getDb();
+  const orgClause = orgId ? ` AND organization_id = $${orgId ? "4" : "3"}` : "";
   if (externalId) {
-    await db.unsafe(
-      `UPDATE message_ledger SET status = $1, external_id = $2 WHERE id = $3`,
-      [status, externalId, messageId],
-    );
+    if (orgId) {
+      await db.unsafe(
+        `UPDATE message_ledger SET status = $1, external_id = $2 WHERE id = $3 AND organization_id = $4`,
+        [status, externalId, messageId, orgId],
+      );
+    } else {
+      await db.unsafe(
+        `UPDATE message_ledger SET status = $1, external_id = $2 WHERE id = $3`,
+        [status, externalId, messageId],
+      );
+    }
   } else {
-    await db.unsafe(
-      `UPDATE message_ledger SET status = $1 WHERE id = $2`,
-      [status, messageId],
-    );
+    if (orgId) {
+      await db.unsafe(
+        `UPDATE message_ledger SET status = $1 WHERE id = $2 AND organization_id = $3`,
+        [status, messageId, orgId],
+      );
+    } else {
+      await db.unsafe(
+        `UPDATE message_ledger SET status = $1 WHERE id = $2`,
+        [status, messageId],
+      );
+    }
   }
 }
 
