@@ -32,7 +32,9 @@ Before starting a task, read `docs/current-state.md` and `docs/architecture.md`.
 
 All commit messages state what changed and which doc (if any) needs a corresponding update.
 
-## 8. (Reserved)
+## 8. Feature Freeze on Open P0s
+
+No new subsystem (payments, encryption, RBAC, external webhooks) may be started while any P0 item from `docs/db-contracts.md` or `docs/release-readiness.md` is open.
 
 ## 9. Diagnostic Tests Must Be Marked
 
