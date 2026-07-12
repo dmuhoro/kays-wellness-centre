@@ -193,8 +193,8 @@ describe("PII Encryption - Key Rotation Mid-Write", () => {
     vi.clearAllMocks();
   });
 
-  it("cannot decrypt data encrypted before key rotation (v1 ciphertext vs v2 key)", async () => {
-    const { encryptPII, wipeKeyCache } = await import("@/lib/encryption.server");
+  it("data encrypted under v1 key decrypts successfully after rotation to v2", async () => {
+    const { encryptPII, decryptPII, wipeKeyCache } = await import("@/lib/encryption.server");
     wipeKeyCache();
 
     // Encrypt with key v1
@@ -202,7 +202,7 @@ describe("PII Encryption - Key Rotation Mid-Write", () => {
     const encrypted = await encryptPII("org-1", "sensitive patient data");
     expect(encrypted).toMatch(/^ENC:/);
 
-    // Rotate key to v2: UPDATE active=false, SELECT MAX, INSERT v2
+    // Rotate key to v2
     const { rotateOrgKey } = await import("@/lib/encryption.server");
     mockDb.unsafe.mockResolvedValueOnce([]);
     mockDb.unsafe.mockResolvedValueOnce([{ max_version: 1 }]);
@@ -210,19 +210,19 @@ describe("PII Encryption - Key Rotation Mid-Write", () => {
     const newVersion = await rotateOrgKey("org-1");
     expect(newVersion).toBe(2);
 
-    // Wipe cache to force fresh key fetch (simulates TTL expiry)
+    // Wipe cache — simulates TTL expiry; v2 is now the active key
     wipeKeyCache();
 
-    // Mock returning v2 key from DB
+    // Mock: getKeyByVersion("org-1", 1) fetches the retired v1 key from the store
     mockDb.unsafe.mockReset();
-    mockDb.unsafe.mockResolvedValueOnce([{ key_hash: "v2-passphrase-hash", key_version: 2 }]);
+    mockDb.unsafe.mockResolvedValueOnce([{ key_hash: "v1-passphrase-hash", key_version: 1 }]);
 
-    // Decrypt should fail — data was encrypted with v1, but getActiveKey returns v2
-    const { decryptPII } = await import("@/lib/encryption.server");
-    await expect(decryptPII("org-1", encrypted)).rejects.toThrow("Decryption failed");
+    // Decrypt succeeds — reads payload.keyVersion=1, fetches v1 key, not the active v2
+    const decrypted = await decryptPII("org-1", encrypted);
+    expect(decrypted).toBe("sensitive patient data");
   });
 
-  it("encrypts and decrypts successfully with post-rotation key", async () => {
+  it("full round-trip across both pre-rotation and post-rotation ciphertexts", async () => {
     const { encryptPII, decryptPII, wipeKeyCache } = await import("@/lib/encryption.server");
     wipeKeyCache();
 
@@ -239,31 +239,32 @@ describe("PII Encryption - Key Rotation Mid-Write", () => {
     await rotateOrgKey("org-1");
     wipeKeyCache();
 
-    // Encrypt new data with v2 (getActiveKey fetches v2 from DB)
+    // Encrypt new data with v2 (getActiveKey fetches v2)
     mockDb.unsafe.mockReset();
     mockDb.unsafe.mockResolvedValueOnce([{ key_hash: "v2-hash", key_version: 2 }]);
     const encV2 = await encryptPII("org-1", "new data");
 
-    // Decrypt v2 data — should succeed (cache hit from encryptPII above)
-    const decrypted = await decryptPII("org-1", encV2);
-    expect(decrypted).toBe("new data");
+    // Decrypt v2 — cache hit from encryptPII call above
+    const decryptedV2 = await decryptPII("org-1", encV2);
+    expect(decryptedV2).toBe("new data");
 
-    // Decrypt v1 data — should fail (v2 key cannot decrypt v1 ciphertext)
+    // Decrypt v1 — wipe cache, then getKeyByVersion("org-1", 1) fetches retired v1 key
     wipeKeyCache();
     mockDb.unsafe.mockReset();
-    mockDb.unsafe.mockResolvedValueOnce([{ key_hash: "v2-hash", key_version: 2 }]);
-    await expect(decryptPII("org-1", encV1)).rejects.toThrow("Decryption failed");
+    mockDb.unsafe.mockResolvedValueOnce([{ key_hash: "v1-hash", key_version: 1 }]);
+    const decryptedV1 = await decryptPII("org-1", encV1);
+    expect(decryptedV1).toBe("old data");
   });
 
-  it("detects key version embedded in ciphertext but still uses current key", async () => {
-    const { encryptPII, wipeKeyCache } = await import("@/lib/encryption.server");
+  it("payload.keyVersion selects the correct historical key, not the active key", async () => {
+    const { encryptPII, decryptPII, wipeKeyCache } = await import("@/lib/encryption.server");
     wipeKeyCache();
 
     // Encrypt with v1
     mockDb.unsafe.mockResolvedValueOnce([{ key_hash: "v1-hash", key_version: 1 }]);
     const encrypted = await encryptPII("org-1", "audit me");
 
-    // Parse the ENC: payload to verify keyVersion is embedded
+    // Verify keyVersion is embedded in the payload
     const payload = JSON.parse(encrypted.slice(4));
     expect(payload.keyVersion).toBe(1);
 
@@ -276,13 +277,49 @@ describe("PII Encryption - Key Rotation Mid-Write", () => {
     await rotateOrgKey("org-1");
     wipeKeyCache();
 
-    // The payload still says keyVersion=1, but decryptPII ignores it and uses active key
+    // Mock v1 key for getKeyByVersion("org-1", 1)
+    mockDb.unsafe.mockReset();
+    mockDb.unsafe.mockResolvedValueOnce([{ key_hash: "v1-hash", key_version: 1 }]);
+
+    // Decrypt succeeds — payload.keyVersion=1 causes fetch of v1, not active v2
+    const decrypted = await decryptPII("org-1", encrypted);
+    expect(decrypted).toBe("audit me");
+  });
+
+  it("regression: v1 ciphertext must not require v1 to be the active key", async () => {
+    const { encryptPII, decryptPII, wipeKeyCache } = await import("@/lib/encryption.server");
+    wipeKeyCache();
+
+    // Encrypt with v1
+    mockDb.unsafe.mockResolvedValueOnce([{ key_hash: "v1-hash", key_version: 1 }]);
+    const encrypted = await encryptPII("org-1", "regression payload");
+
+    // Rotate to v2 — v1 is now retired (active=false), v2 is active
+    const { rotateOrgKey } = await import("@/lib/encryption.server");
+    mockDb.unsafe.mockReset();
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    mockDb.unsafe.mockResolvedValueOnce([{ max_version: 1 }]);
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    await rotateOrgKey("org-1");
+    wipeKeyCache();
+
+    // getKeyByVersion("org-1", 1) queries the retired v1 row directly
+    mockDb.unsafe.mockReset();
+    mockDb.unsafe.mockResolvedValueOnce([{ key_hash: "v1-hash", key_version: 1 }]);
+
+    // This MUST succeed — the old key is still in the store, just inactive
+    const decrypted = await decryptPII("org-1", encrypted);
+    expect(decrypted).toBe("regression payload");
+
+    // Confirm that active key is v2, not v1
+    wipeKeyCache();
     mockDb.unsafe.mockReset();
     mockDb.unsafe.mockResolvedValueOnce([{ key_hash: "v2-hash", key_version: 2 }]);
-
-    const { decryptPII } = await import("@/lib/encryption.server");
-    // This proves decryptPII does NOT use payload.keyVersion to select the decryption key
-    await expect(decryptPII("org-1", encrypted)).rejects.toThrow("Decryption failed");
+    const { getActiveKey } = await import("@/lib/encryption.server");
+    // getActiveKey is not exported — verify via encrypt (which uses getActiveKey)
+    const encV2 = await encryptPII("org-1", "v2 only");
+    const v2Payload = JSON.parse(encV2.slice(4));
+    expect(v2Payload.keyVersion).toBe(2);
   });
 });
 
@@ -302,19 +339,18 @@ describe("PII Encryption - Missing Org Key", () => {
     await expect(encryptPII("orphan-org", "sensitive data")).rejects.toThrow();
   });
 
-  it("throws decryption error when key table is missing", async () => {
+  it("throws decryption error when key version referenced in payload does not exist", async () => {
     const { decryptPII, wipeKeyCache } = await import("@/lib/encryption.server");
     wipeKeyCache();
 
-    // SELECT fails (table doesn't exist)
-    mockDb.unsafe.mockRejectedValueOnce(new Error("relation \"org_encryption_keys\" does not exist"));
+    // Payload references key version 99, which doesn't exist in the store
+    mockDb.unsafe.mockResolvedValueOnce([]);
 
-    // Use a valid JSON payload so JSON.parse succeeds and we reach the DB call
-    const fakePayload = JSON.stringify({ iv: "aa", tag: "bb", data: "cc", keyVersion: 1 });
+    const fakePayload = JSON.stringify({ iv: "aa", tag: "bb", data: "cc", keyVersion: 99 });
     await expect(decryptPII("orphan-org", `ENC:${fakePayload}`)).rejects.toThrow("Decryption failed");
   });
 
-  it("throws when key was deleted after data was encrypted", async () => {
+  it("throws when key version was purged from store after data was encrypted", async () => {
     const { encryptPII, decryptPII, wipeKeyCache } = await import("@/lib/encryption.server");
     wipeKeyCache();
 
@@ -324,10 +360,9 @@ describe("PII Encryption - Missing Org Key", () => {
 
     wipeKeyCache();
 
-    // Key deleted from DB — SELECT returns empty, INSERT also fails (read-only replica)
+    // Key version row deleted from DB — getKeyByVersion("doomed-org", 1) returns empty
     mockDb.unsafe.mockReset();
     mockDb.unsafe.mockResolvedValueOnce([]);
-    mockDb.unsafe.mockRejectedValueOnce(new Error("permission denied for table org_encryption_keys"));
 
     await expect(decryptPII("doomed-org", encrypted)).rejects.toThrow("Decryption failed");
   });

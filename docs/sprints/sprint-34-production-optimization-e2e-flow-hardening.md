@@ -2,7 +2,7 @@
 
 ## Summary
 
-Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, and tenant isolation hardening across all server modules. **610 tests / 52 files — all passing.**
+Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, and tenant isolation hardening across all server modules. **611 tests / 52 files — all passing.**
 
 ## Audit Findings
 
@@ -30,9 +30,19 @@ Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, a
 - `idx_automation_state_org` — automation state lookups
 - `idx_queue_tenant_status` — notification queue dispatch
 
+## Key Rotation Bug Fix
+
+**Bug**: `decryptPII` at `encryption.server.ts:104` always called `getActiveKey(orgId)`, returning the latest active key and ignoring the `keyVersion` embedded in the ciphertext payload. After any key rotation, all previously-encrypted data became undecryptable.
+
+**Fix** (`src/lib/encryption.server.ts`):
+- Added `getKeyByVersion(orgId, version)` — fetches a specific key version from the store (active or retired) by querying `org_encryption_keys WHERE organization_id = $1 AND key_version = $2`
+- `decryptPII` now reads `payload.keyVersion` and calls `getKeyByVersion` instead of `getActiveKey`
+- `getActiveKey` and `initializeOrgKey` now cache entries under both `"orgId"` and `"orgId:vN"` so `getKeyByVersion` benefits from cache hits after encrypt
+- `rotateOrgKey` was already correct — it uses `SET active = false`, never DELETE; retired keys remain in the store for historical decryption
+
 ## Adversarial Test Coverage
 
-### Reconciliation Idempotency (7 new tests)
+### Reconciliation Idempotency (7 tests)
 
 `src/__tests__/reconciliation.test.ts`:
 
@@ -46,21 +56,20 @@ Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, a
 | No match when amount differs | Amount 99999 against 3000 invoice → `unmatched` |
 | Phone disambiguates partial matches | Two same-amount candidates, phone resolves to correct invoice |
 
-### Encryption Key Rotation & Missing Key (7 new tests)
+### Encryption Key Rotation & Missing Key (8 tests)
 
 `src/__tests__/encryption.test.ts`:
 
 | Test | What it proves |
 |------|---------------|
-| v1 ciphertext vs v2 key fails | `decryptPII` uses current active key (v2), ignoring `keyVersion` in payload |
-| Post-rotation encrypt/decrypt works | New data encrypted with v2 decrypts fine; v1 data still fails |
-| keyVersion in payload is ignored | Payload contains `keyVersion: 1` but `decryptPII` fetches active key (v2) — proves rotation bug |
+| v1 ciphertext decrypts after rotation to v2 | `decryptPII` reads `payload.keyVersion=1`, fetches retired v1 key — decryption succeeds |
+| Full round-trip across both keys | Encrypt v1, rotate, encrypt v2, both decrypt correctly |
+| payload.keyVersion selects correct historical key | Payload has `keyVersion: 1`, active key is v2 — fetches v1, decrypt succeeds |
+| **Regression: v1 ciphertext must not require v1 active** | After rotation, v1 is retired (active=false) — decryption still succeeds via `getKeyByVersion` |
 | Missing key + DB init fails | No key in DB + INSERT fails → `encryptPII` throws |
-| Missing key table on decrypt | DB SELECT fails (table missing) → `Decryption failed` |
-| Key deleted after encryption | Encrypts successfully, then key is deleted + re-init fails → `Decryption failed` |
+| Key version not in DB | Payload references version 99 which doesn't exist → `Decryption failed` |
+| Key version purged from store | Encrypts, then key row deleted → `Decryption failed` |
 | Auto-initializes key for new org | No existing key → INSERT creates v1, verifies correct SQL and org ID |
-
-**Key finding**: `decryptPII` at `encryption.server.ts:104` always uses the latest active key, ignoring the `keyVersion` embedded in ciphertext. Key rotation breaks decryption of all existing data.
 
 ## E2E Simulation Test
 
@@ -75,6 +84,7 @@ Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, a
 
 | File | Change |
 |------|--------|
+| `src/lib/encryption.server.ts` | Added `getKeyByVersion`; `decryptPII` uses `payload.keyVersion`; dual-cache in `getActiveKey`/`initializeOrgKey` |
 | `src/lib/messaging.server.ts` | `updateMessageStatus` accepts optional `orgId` |
 | `src/lib/webhooks.server.ts` | `updateDeliveryStatus` accepts optional `orgId`; `webhook_configs` SELECT scoped |
 | `src/lib/reconciliation.server.ts` | UPDATE invoices scoped by `organization_id` |
@@ -84,10 +94,10 @@ Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, a
 | `src/lib/db.server.ts` | 5 new performance indexes |
 | `src/__tests__/e2e-simulation.test.ts` | **New** — 15 E2E lifecycle tests |
 | `src/__tests__/reconciliation.test.ts` | +7 adversarial tests (idempotency, stale replay, partial match) |
-| `src/__tests__/encryption.test.ts` | +7 adversarial tests (key rotation mid-write, missing org key) |
+| `src/__tests__/encryption.test.ts` | +8 adversarial tests (key rotation, regression, missing org key) |
 
 ## Test Results
 
-- **610 tests / 52 files** — all passing
+- **611 tests / 52 files** — all passing
 - **Build**: zero errors (only pre-existing `inputValidator()` deprecation warnings)
-- **New tests added**: 22 (15 E2E simulation + 7 reconciliation adversarial + 7 encryption adversarial — net after consolidation)
+- **New tests added**: 23 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial — net after consolidation)

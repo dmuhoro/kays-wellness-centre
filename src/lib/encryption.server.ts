@@ -45,7 +45,9 @@ async function getActiveKey(orgId: string): Promise<{ key: Buffer; version: numb
   }
 
   const key = deriveKey(orgId, rows[0].key_hash, rows[0].key_version);
-  orgKeyCache.set(orgId, { key, version: rows[0].key_version, ts: Date.now() });
+  const entry = { key, version: rows[0].key_version, ts: Date.now() };
+  orgKeyCache.set(orgId, entry);
+  orgKeyCache.set(`${orgId}:v${rows[0].key_version}`, entry);
   return { key, version: rows[0].key_version };
 }
 
@@ -62,7 +64,9 @@ async function initializeOrgKey(orgId: string): Promise<{ key: Buffer; version: 
   );
 
   const key = deriveKey(orgId, keyHash, 1);
-  orgKeyCache.set(orgId, { key, version: 1, ts: Date.now() });
+  const entry = { key, version: 1, ts: Date.now() };
+  orgKeyCache.set(orgId, entry);
+  orgKeyCache.set(`${orgId}:v1`, entry);
 
   logger.info("Organization encryption key initialized", {
     event: EVENTS.PII_ENCRYPTED,
@@ -96,12 +100,35 @@ export async function encryptPII(orgId: string, plaintext: string): Promise<stri
   return `ENC:${JSON.stringify(payload)}`;
 }
 
+async function getKeyByVersion(orgId: string, version: number): Promise<{ key: Buffer; version: number }> {
+  const cacheKey = `${orgId}:v${version}`;
+  const cached = orgKeyCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < KEY_CACHE_TTL_MS) {
+    return { key: cached.key, version: cached.version };
+  }
+
+  const db = await getDb();
+  const rows = await db.unsafe<Array<{ key_hash: string; key_version: number }>>(
+    `SELECT key_hash, key_version FROM org_encryption_keys
+     WHERE organization_id = $1 AND key_version = $2`,
+    [orgId, version],
+  );
+
+  if (rows.length === 0) {
+    throw new Error(`Encryption key version ${version} not found for org ${orgId}`);
+  }
+
+  const key = deriveKey(orgId, rows[0].key_hash, rows[0].key_version);
+  orgKeyCache.set(cacheKey, { key, version: rows[0].key_version, ts: Date.now() });
+  return { key, version: rows[0].key_version };
+}
+
 export async function decryptPII(orgId: string, ciphertext: string): Promise<string> {
   if (!ciphertext || !ciphertext.startsWith("ENC:")) return ciphertext;
 
   try {
     const payload: EncryptedPayload = JSON.parse(ciphertext.slice(4));
-    const { key } = await getActiveKey(orgId);
+    const { key } = await getKeyByVersion(orgId, payload.keyVersion);
 
     const iv = Buffer.from(payload.iv, "hex");
     const tag = Buffer.from(payload.tag, "hex");
