@@ -218,29 +218,29 @@ export const bookSlot = createServerFn({ method: "POST" })
         return { status: "slot_unavailable" as const, message: "This slot is already booked" };
       }
 
-      const sets: string[] = [
-        "status = 'scheduled'",
-        `appointment_timestamp = $1`,
-      ];
-      const params: unknown[] = [data.appointmentTimestamp, data.leadId, data.organizationId];
-      let idx = 4;
+      const sets: string[] = ["status = 'scheduled'"];
+      const params: unknown[] = [];
+      let idx = 1;
+
+      sets.push(`appointment_timestamp = $${idx++}`);
+      params.push(data.appointmentTimestamp);
 
       if (data.providerId !== undefined && data.providerId !== null) {
         sets.push(`provider_id = $${idx++}`);
-        params.splice(params.length - 2, 0, data.providerId);
+        params.push(data.providerId);
       }
       if (data.roomId !== undefined && data.roomId !== null) {
-        sets.push(`room_id = $${idx}`);
-        params.splice(params.length - 1, 0, data.roomId);
+        sets.push(`room_id = $${idx++}`);
+        params.push(data.roomId);
       }
 
-      params[params.length - 2] = data.leadId;
-      params[params.length - 1] = data.organizationId;
+      params.push(data.leadId);
+      params.push(data.organizationId);
 
       await db.unsafe(
         `UPDATE clinic_leads SET ${sets.join(", ")}
-         WHERE id = ${params[params.length - 2]} AND organization_id = ${params[params.length - 1]}`,
-        params.slice(0, sets.length),
+         WHERE id = $${idx++} AND organization_id = $${idx}`,
+        params,
       );
 
       logger.info("Slot booked", {

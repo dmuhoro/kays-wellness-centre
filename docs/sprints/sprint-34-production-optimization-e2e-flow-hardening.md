@@ -2,7 +2,7 @@
 
 ## Summary
 
-Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, and tenant isolation hardening across all server modules. **629 tests / 53 files — all passing.**
+Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, and tenant isolation hardening across all server modules. **634 tests / 54 files — all passing.**
 
 ## Audit Findings
 
@@ -18,7 +18,7 @@ Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, a
 | `api/diagnostics.server.ts:83` | `getFailedQueueItems` returns items from ALL tenants | P0 | **Fixed** (SUPER_ADMIN gate) |
 | `queue.server.ts:172` | `processQueue` fetches pending items from ALL tenants (reads payloads) | P0 | **Fixed** (optional `tenantId` param) |
 | `telemetry.server.ts:223-232` | `getMilestoneStats` — 3 queries with no org filter (admin aggregate) | P1 | **Fixed** (SUPER_ADMIN gate) |
-| `api/scheduling.server.ts:240` | String-interpolated WHERE clause instead of bound params | Warning | Deferred |
+| `api/scheduling.server.ts:240` | String-interpolated WHERE clause instead of bound params | Warning | **Fixed** |
 
 ### DB Index Audit
 
@@ -55,6 +55,12 @@ All three queue diagnostics functions (`getQueueTelemetry`, `forceRetryQueueItem
 `getMilestoneStats()` ran 3 cross-tenant aggregate queries (`SELECT COUNT(*) FROM organizations`, milestone counts, activation rate) with no access control.
 
 **Fix**: Added `requireRole(ROLES.SUPER_ADMIN)` after the DB availability check. Admin aggregate stats are now restricted to platform admins.
+
+### scheduling.server.ts:240 — SQL injection fix
+
+The `bookSlot` UPDATE at line 240 interpolated `leadId` and `organizationId` directly into the SQL string via `${}` instead of binding them as `$N` parameters. Additionally, the `params.slice(0, sets.length)` truncation meant `provider_id` and `room_id` values were added to the params array but never reached the query.
+
+**Fix**: Rewrote the params construction to build sequentially — each SET clause pushes its value to params with a `$N` placeholder, and the WHERE clause appends `leadId` and `organizationId` as the final two `$N` parameters. No string interpolation of user values remains in the query.
 
 ## Key Rotation Bug Fix
 
@@ -120,14 +126,16 @@ All three queue diagnostics functions (`getQueueTelemetry`, `forceRetryQueueItem
 | `src/lib/api/interactions.server.ts` | Correlated subquery scoped by `organization_id` |
 | `src/lib/api/diagnostics.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getQueueTelemetry`, `forceRetryQueueItems`, `getFailedQueueItems` |
 | `src/lib/telemetry.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getMilestoneStats` |
+| `src/lib/api/scheduling.server.ts` | `bookSlot` UPDATE rewritten with bound `$N` params — no string interpolation |
 | `src/lib/db.server.ts` | 5 new performance indexes |
 | `src/__tests__/e2e-simulation.test.ts` | **New** — 15 E2E lifecycle tests |
 | `src/__tests__/reconciliation.test.ts` | +7 adversarial tests (idempotency, stale replay, partial match) |
 | `src/__tests__/encryption.test.ts` | +8 adversarial tests (key rotation, regression, missing org key) |
 | `src/__tests__/tenant-isolation-p0.test.ts` | **New** — 18 adversarial tests proving all P0 fixes |
+| `src/__tests__/scheduling-injection.test.ts` | **New** — 5 adversarial tests for SQL injection fix |
 
 ## Test Results
 
-- **629 tests / 53 files** — all passing
+- **634 tests / 54 files** — all passing
 - **Build**: zero errors (only pre-existing `inputValidator()` deprecation warnings)
-- **New tests added**: 41 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 18 tenant isolation P0 adversarial — net after consolidation)
+- **New tests added**: 46 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 18 tenant isolation P0 adversarial + 5 scheduling injection adversarial — net after consolidation)
