@@ -189,15 +189,15 @@ export const bookSlot = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       leadId: z.number(),
-      organizationId: z.string().uuid(),
       appointmentTimestamp: z.string().datetime(),
       providerId: z.number().nullable().optional(),
       roomId: z.number().nullable().optional(),
     }),
   )
   .handler(async ({ data }) => {
+    const { orgId } = requireOrg();
     const db = await getDb();
-    const lockKey = `slot:${data.organizationId}:${data.appointmentTimestamp}`;
+    const lockKey = `slot:${orgId}:${data.appointmentTimestamp}`;
     const acquired = await getConcurrentLock(lockKey);
     if (!acquired) {
       return { status: "concurrency_conflict" as const, message: "Slot is being booked by another request" };
@@ -211,7 +211,7 @@ export const bookSlot = createServerFn({ method: "POST" })
            AND status != 'closed'
          LIMIT 1
          FOR UPDATE`,
-        [data.organizationId, data.appointmentTimestamp],
+        [orgId, data.appointmentTimestamp],
       );
 
       if (existing.length > 0) {
@@ -235,7 +235,7 @@ export const bookSlot = createServerFn({ method: "POST" })
       }
 
       params.push(data.leadId);
-      params.push(data.organizationId);
+      params.push(orgId);
 
       await db.unsafe(
         `UPDATE clinic_leads SET ${sets.join(", ")}
@@ -258,7 +258,6 @@ export const bookSlot = createServerFn({ method: "POST" })
 export const reserveSlot = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      organizationId: z.string().uuid(),
       appointmentTimestamp: z.string().datetime(),
       providerId: z.number().nullable().optional(),
       roomId: z.number().nullable().optional(),
@@ -266,8 +265,9 @@ export const reserveSlot = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    const { orgId } = requireOrg();
     const db = await getDb();
-    const lockKey = `reserve:${data.organizationId}:${data.appointmentTimestamp}`;
+    const lockKey = `reserve:${orgId}:${data.appointmentTimestamp}`;
     const acquired = await getConcurrentLock(lockKey);
     if (!acquired) {
       return { status: "concurrency_conflict" as const, message: "Slot reservation contention" };
@@ -281,7 +281,7 @@ export const reserveSlot = createServerFn({ method: "POST" })
            AND status NOT IN ('closed', 'lost')
          LIMIT 1
          FOR UPDATE`,
-        [data.organizationId, data.appointmentTimestamp],
+        [orgId, data.appointmentTimestamp],
       );
 
       if (existing.length > 0) {
@@ -301,7 +301,7 @@ export const reserveSlot = createServerFn({ method: "POST" })
            SET expires_at = $5, created_at = CURRENT_TIMESTAMP
          RETURNING id`,
         [
-          data.organizationId,
+          orgId,
           data.appointmentTimestamp,
           data.providerId ?? null,
           data.roomId ?? null,

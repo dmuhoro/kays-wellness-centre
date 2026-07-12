@@ -61,7 +61,6 @@ describe("bookSlot concurrency behavior", () => {
       await bookSlot({
         data: {
           leadId: 1,
-          organizationId: "00000000-0000-0000-0000-000000000001",
           appointmentTimestamp: "2026-07-15T10:00:00.000Z",
         },
       });
@@ -88,7 +87,6 @@ describe("bookSlot concurrency behavior", () => {
       await bookSlot({
         data: {
           leadId: 1,
-          organizationId: "00000000-0000-0000-0000-000000000001",
           appointmentTimestamp: "2026-07-15T10:00:00.000Z",
         },
       });
@@ -112,7 +110,6 @@ describe("reserveSlot concurrency behavior", () => {
     try {
       await reserveSlot({
         data: {
-          organizationId: "00000000-0000-0000-0000-000000000001",
           appointmentTimestamp: "2026-07-15T10:00:00.000Z",
           expiresInSeconds: 300,
         },

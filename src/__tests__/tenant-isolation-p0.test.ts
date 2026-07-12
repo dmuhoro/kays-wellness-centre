@@ -7,10 +7,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  */
 
 let mockDb: { unsafe: ReturnType<typeof vi.fn> };
+const mockGetConcurrentLock = vi.fn();
+const mockReleaseConcurrentLock = vi.fn();
 
 beforeEach(() => {
   vi.resetModules();
   mockDb = { unsafe: vi.fn().mockResolvedValue([]) };
+  mockGetConcurrentLock.mockReset();
+  mockReleaseConcurrentLock.mockReset();
+  mockGetConcurrentLock.mockResolvedValue(true);
+  mockReleaseConcurrentLock.mockResolvedValue(undefined);
 });
 
 const mockLogger = {
@@ -44,6 +50,8 @@ vi.mock("@/lib/db.server", () => ({
   isDbAvailable: vi.fn(() => true),
   withDb: vi.fn(),
   getConnectionError: vi.fn(() => null),
+  getConcurrentLock: mockGetConcurrentLock,
+  releaseConcurrentLock: mockReleaseConcurrentLock,
 }));
 
 vi.mock("sonner", () => ({
@@ -121,17 +129,40 @@ describe("P0-1: interactions correlated subquery scoped by org_id", () => {
 });
 
 describe("P0-2: processQueue optional tenantId scoping", () => {
-  it("processQueue without tenantId fetches all pending items (background worker)", async () => {
-    const { processQueue } = await import("../lib/queue.server");
-    await processQueue({ batchSize: 5 });
+  it("processNotifications queries distinct tenants then processes each separately", async () => {
+    // ensureQueueSchema call
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    // Distinct tenants query returns two tenants
+    mockDb.unsafe.mockResolvedValueOnce([{ tenant_id: "org-A" }, { tenant_id: "org-B" }]);
+    // ensureQueueSchema for org-A batch
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    // Queue query for org-A returns one item
+    mockDb.unsafe.mockResolvedValueOnce([
+      { id: 1, tenant_id: "org-A", lead_id: 10, event_type: "lead_created", payload_json: null, retry_count: 0, max_retries: 3 },
+    ]);
+    // UPDATE for org-A item
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    // ensureQueueSchema for org-B batch
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    // Queue query for org-B returns one item
+    mockDb.unsafe.mockResolvedValueOnce([
+      { id: 2, tenant_id: "org-B", lead_id: 20, event_type: "lead_created", payload_json: null, retry_count: 0, max_retries: 3 },
+    ]);
+    // UPDATE for org-B item
+    mockDb.unsafe.mockResolvedValueOnce([]);
 
-    const pendingCall = mockDb.unsafe.mock.calls.find(
-      ([sql]: [string]) => (sql as string).includes("FROM notification_queue") && (sql as string).includes("pending"),
-    );
-    expect(pendingCall).toBeDefined();
-    const sql = pendingCall![0] as string;
-    expect(sql).not.toContain("tenant_id = $1");
-    expect(sql).toContain("WHERE status = 'pending'");
+    const mockDispatch = vi.fn().mockResolvedValue({ success: true });
+    const { processNotifications } = await import("../lib/queue.server");
+    const result = await processNotifications({ dispatch: mockDispatch });
+
+    expect(result.processed).toBe(2);
+    expect(result.failed).toBe(0);
+
+    // Verify dispatch was called with each tenant separately, never mixed
+    const dispatchCalls = mockDispatch.mock.calls;
+    expect(dispatchCalls).toHaveLength(2);
+    expect(dispatchCalls[0][0].tenantId).toBe("org-A");
+    expect(dispatchCalls[1][0].tenantId).toBe("org-B");
   });
 
   it("processQueue with tenantId scopes to that tenant only", async () => {
@@ -285,5 +316,91 @@ describe("P0-5: queue processQueue error handling preserved", () => {
     const result = await processNotifications();
     expect(result.processed).toBe(0);
     expect(result.failed).toBe(0);
+  });
+});
+
+describe("P0-6: bookSlot/reserveSlot organizationId from requireOrg(), not client input", () => {
+  it("bookSlot uses requireOrg().orgId for SQL queries, not any client-supplied organizationId", async () => {
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    mockDb.unsafe.mockResolvedValueOnce([]);
+
+    const { bookSlot } = await import("../lib/api/scheduling.server");
+    await bookSlot({
+      data: {
+        leadId: 1,
+        appointmentTimestamp: "2026-07-15T10:00:00.000Z",
+      },
+    });
+
+    const updateCall = mockDb.unsafe.mock.calls.find(
+      ([sql]: [string]) => (sql as string).includes("UPDATE clinic_leads"),
+    );
+    expect(updateCall).toBeDefined();
+    const params = updateCall![1] as unknown[];
+    expect(params[params.length - 1]).toBe("org-A");
+  });
+
+  it("reserveSlot uses requireOrg().orgId for SQL queries, not any client-supplied organizationId", async () => {
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    mockDb.unsafe.mockResolvedValueOnce([{ id: 42 }]);
+
+    const { reserveSlot } = await import("../lib/api/scheduling.server");
+    await reserveSlot({
+      data: {
+        appointmentTimestamp: "2026-07-15T10:00:00.000Z",
+        expiresInSeconds: 300,
+      },
+    });
+
+    const insertCall = mockDb.unsafe.mock.calls.find(
+      ([sql]: [string]) => (sql as string).includes("INSERT INTO slot_reservations"),
+    );
+    expect(insertCall).toBeDefined();
+    const params = insertCall![1] as unknown[];
+    expect(params[0]).toBe("org-A");
+  });
+
+  it("bookSlot ignores any client-supplied organizationId — always uses requireOrg().orgId", async () => {
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    mockDb.unsafe.mockResolvedValueOnce([]);
+
+    const { bookSlot } = await import("../lib/api/scheduling.server");
+    await bookSlot({
+      data: {
+        leadId: 1,
+        organizationId: "00000000-0000-0000-0000-000000000099",
+        appointmentTimestamp: "2026-07-15T10:00:00.000Z",
+      },
+    });
+
+    const updateCall = mockDb.unsafe.mock.calls.find(
+      ([sql]: [string]) => (sql as string).includes("UPDATE clinic_leads"),
+    );
+    expect(updateCall).toBeDefined();
+    const params = updateCall![1] as unknown[];
+    expect(params[params.length - 1]).toBe("org-A");
+    expect(params).not.toContain("00000000-0000-0000-0000-000000000099");
+  });
+
+  it("reserveSlot ignores any client-supplied organizationId — always uses requireOrg().orgId", async () => {
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    mockDb.unsafe.mockResolvedValueOnce([{ id: 42 }]);
+
+    const { reserveSlot } = await import("../lib/api/scheduling.server");
+    await reserveSlot({
+      data: {
+        organizationId: "00000000-0000-0000-0000-000000000099",
+        appointmentTimestamp: "2026-07-15T10:00:00.000Z",
+        expiresInSeconds: 300,
+      },
+    });
+
+    const insertCall = mockDb.unsafe.mock.calls.find(
+      ([sql]: [string]) => (sql as string).includes("INSERT INTO slot_reservations"),
+    );
+    expect(insertCall).toBeDefined();
+    const params = insertCall![1] as unknown[];
+    expect(params[0]).toBe("org-A");
+    expect(params).not.toContain("00000000-0000-0000-0000-000000000099");
   });
 });

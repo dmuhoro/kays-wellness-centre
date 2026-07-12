@@ -53,7 +53,7 @@ describe("bookSlot SQL parameterization", () => {
     mockReleaseConcurrentLock.mockResolvedValue(undefined);
   });
 
-  it("passes leadId and organizationId as bound parameters, not interpolated", async () => {
+  it("passes leadId as bound parameter, not interpolated", async () => {
     mockDb.unsafe.mockResolvedValueOnce([]);
     mockDb.unsafe.mockResolvedValueOnce([]);
 
@@ -61,7 +61,6 @@ describe("bookSlot SQL parameterization", () => {
     await bookSlot({
       data: {
         leadId: 42,
-        organizationId: "00000000-0000-0000-0000-000000000001",
         appointmentTimestamp: "2026-07-15T10:00:00.000Z",
       },
     });
@@ -73,7 +72,7 @@ describe("bookSlot SQL parameterization", () => {
     expect(sql).toContain("WHERE id = $2 AND organization_id = $3");
     expect(sql).not.toContain("WHERE id = 42");
     expect(sql).not.toContain("WHERE id = ${");
-    expect(params).toEqual(["2026-07-15T10:00:00.000Z", 42, "00000000-0000-0000-0000-000000000001"]);
+    expect(params).toEqual(["2026-07-15T10:00:00.000Z", 42, "org-test"]);
   });
 
   it("treats a malicious leadId with SQL keywords as literal data", async () => {
@@ -84,7 +83,6 @@ describe("bookSlot SQL parameterization", () => {
     await bookSlot({
       data: {
         leadId: 999,
-        organizationId: "00000000-0000-0000-0000-000000000001",
         appointmentTimestamp: "2026-07-15T10:00:00.000Z",
       },
     });
@@ -107,7 +105,6 @@ describe("bookSlot SQL parameterization", () => {
     await bookSlot({
       data: {
         leadId: 7,
-        organizationId: "00000000-0000-0000-0000-000000000001",
         appointmentTimestamp: "2026-07-15T10:00:00.000Z",
         providerId: 3,
       },
@@ -119,7 +116,7 @@ describe("bookSlot SQL parameterization", () => {
 
     expect(sql).toContain("provider_id = $2");
     expect(sql).toContain("WHERE id = $3 AND organization_id = $4");
-    expect(params).toEqual(["2026-07-15T10:00:00.000Z", 3, 7, "00000000-0000-0000-0000-000000000001"]);
+    expect(params).toEqual(["2026-07-15T10:00:00.000Z", 3, 7, "org-test"]);
   });
 
   it("correctly indexes parameters with both providerId and roomId", async () => {
@@ -130,7 +127,6 @@ describe("bookSlot SQL parameterization", () => {
     await bookSlot({
       data: {
         leadId: 5,
-        organizationId: "00000000-0000-0000-0000-000000000001",
         appointmentTimestamp: "2026-07-15T10:00:00.000Z",
         providerId: 2,
         roomId: 8,
@@ -144,7 +140,7 @@ describe("bookSlot SQL parameterization", () => {
     expect(sql).toContain("provider_id = $2");
     expect(sql).toContain("room_id = $3");
     expect(sql).toContain("WHERE id = $4 AND organization_id = $5");
-    expect(params).toEqual(["2026-07-15T10:00:00.000Z", 2, 8, 5, "00000000-0000-0000-0000-000000000001"]);
+    expect(params).toEqual(["2026-07-15T10:00:00.000Z", 2, 8, 5, "org-test"]);
   });
 
   it("releases lock even on failure", async () => {
@@ -156,12 +152,31 @@ describe("bookSlot SQL parameterization", () => {
       bookSlot({
         data: {
           leadId: 1,
-          organizationId: "00000000-0000-0000-0000-000000000001",
           appointmentTimestamp: "2026-07-15T10:00:00.000Z",
         },
       }),
     ).rejects.toThrow("DB boom");
 
     expect(mockReleaseConcurrentLock).toHaveBeenCalled();
+  });
+
+  it("organizationId comes from requireOrg(), not client input", async () => {
+    mockDb.unsafe.mockResolvedValueOnce([]);
+    mockDb.unsafe.mockResolvedValueOnce([]);
+
+    const { bookSlot } = await import("../lib/api/scheduling.server");
+    await bookSlot({
+      data: {
+        leadId: 1,
+        appointmentTimestamp: "2026-07-15T10:00:00.000Z",
+      },
+    });
+
+    const lockCall = mockGetConcurrentLock.mock.calls[0];
+    expect(lockCall[0]).toContain("org-test");
+
+    const updateCall = mockDb.unsafe.mock.calls[1];
+    const params = updateCall[1] as unknown[];
+    expect(params[params.length - 1]).toBe("org-test");
   });
 });

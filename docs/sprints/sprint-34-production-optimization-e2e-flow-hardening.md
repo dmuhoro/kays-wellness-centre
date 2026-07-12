@@ -2,7 +2,7 @@
 
 ## Summary
 
-Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, and tenant isolation hardening across all server modules. **634 tests / 54 files — all passing.**
+Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, and tenant isolation hardening across all server modules. **639 tests / 54 files — all passing.**
 
 ## Audit Findings
 
@@ -16,9 +16,10 @@ Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, a
 | `api/diagnostics.server.ts:38` | `getQueueTelemetry` aggregates ALL tenants' queue stats | P0 | **Fixed** (SUPER_ADMIN gate) |
 | `api/diagnostics.server.ts:58` | `forceRetryQueueItems` resets failed items across ALL tenants | P0 | **Fixed** (SUPER_ADMIN gate) |
 | `api/diagnostics.server.ts:83` | `getFailedQueueItems` returns items from ALL tenants | P0 | **Fixed** (SUPER_ADMIN gate) |
-| `queue.server.ts:172` | `processQueue` fetches pending items from ALL tenants (reads payloads) | P0 | **Fixed** (optional `tenantId` param) |
+| `queue.server.ts:172` | `processQueue` fetches pending items from ALL tenants (reads payloads) | P0 | **Fixed** (per-tenant dispatch in `processNotifications`) |
 | `telemetry.server.ts:223-232` | `getMilestoneStats` — 3 queries with no org filter (admin aggregate) | P1 | **Fixed** (SUPER_ADMIN gate) |
 | `api/scheduling.server.ts:240` | String-interpolated WHERE clause instead of bound params | Warning | **Fixed** |
+| `api/scheduling.server.ts:192,261` | `bookSlot`/`reserveSlot` accept `organizationId` from client input — tenant impersonation | P0 | **Fixed** (orgId from `requireOrg()` only) |
 
 ### DB Index Audit
 
@@ -38,11 +39,11 @@ The `getLeadsWithPendingReplies` correlated subquery was missing `organization_i
 
 **Fix**: Added `AND organization_id = $1` to the inner `SELECT MAX(created_at)` subquery.
 
-### queue.server.ts:172 — processQueue optional tenantId
+### queue.server.ts:172 — processQueue per-tenant dispatch
 
 The background queue worker fetched ALL pending items across tenants, reading WhatsApp payloads for other clinics.
 
-**Fix**: Added optional `tenantId` parameter. When provided, the query scopes by `WHERE tenant_id = $1`. Without it (background worker mode), it processes all tenants as before.
+**Fix**: Added optional `tenantId` parameter. When provided, the query scopes by `WHERE tenant_id = $1`. `processNotifications()` now queries distinct `tenant_id` values from pending items, then calls `processQueue` per-tenant — the production background worker never mixes rows from multiple tenants in a single dispatch pass.
 
 ### diagnostics.server.ts — SUPER_ADMIN gate
 
@@ -61,6 +62,15 @@ All three queue diagnostics functions (`getQueueTelemetry`, `forceRetryQueueItem
 The `bookSlot` UPDATE at line 240 interpolated `leadId` and `organizationId` directly into the SQL string via `${}` instead of binding them as `$N` parameters. Additionally, the `params.slice(0, sets.length)` truncation meant `provider_id` and `room_id` values were added to the params array but never reached the query.
 
 **Fix**: Rewrote the params construction to build sequentially — each SET clause pushes its value to params with a `$N` placeholder, and the WHERE clause appends `leadId` and `organizationId` as the final two `$N` parameters. No string interpolation of user values remains in the query.
+
+### scheduling.server.ts:192,261 — bookSlot/reserveSlot tenant impersonation fix
+
+Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied field in their Zod input validators. A caller authenticated as tenant A could pass tenant B's `organizationId` to book or reserve slots in another tenant's calendar. Full codebase audit confirmed these were the **only two** `createServerFn` functions with this pattern — all others use `requireOrg().orgId`.
+
+**Fix**: Removed `organizationId` from both input validators entirely. Both handlers now derive `orgId` from `requireOrg().orgId` server-side. Updated existing tests in `concurrency.test.ts` and `scheduling-injection.test.ts` to remove `organizationId` from test data. Added 4 adversarial tests in `tenant-isolation-p0.test.ts` (P0-6) verifying:
+- `bookSlot` uses `requireOrg().orgId` for SQL queries, not any client-supplied value
+- `reserveSlot` uses `requireOrg().orgId` for SQL queries, not any client-supplied value
+- Even when `organizationId` is passed in the data, it is ignored and the server-derived `orgId` is used
 
 ## Key Rotation Bug Fix
 
@@ -120,25 +130,27 @@ The `bookSlot` UPDATE at line 240 interpolated `leadId` and `organizationId` dir
 | `src/lib/messaging.server.ts` | `updateMessageStatus` accepts optional `orgId` |
 | `src/lib/webhooks.server.ts` | `updateDeliveryStatus` accepts optional `orgId`; `webhook_configs` SELECT scoped |
 | `src/lib/reconciliation.server.ts` | UPDATE invoices scoped by `organization_id` |
-| `src/lib/queue.server.ts` | SELECT clinic_leads scoped by `organization_id`; `processQueue` accepts optional `tenantId` |
+| `src/lib/queue.server.ts` | SELECT clinic_leads scoped by `organization_id`; `processQueue` accepts optional `tenantId`; `processNotifications` dispatches per-tenant |
 | `src/lib/api/billing.server.ts` | SUM payments + UPDATE invoices scoped by `organization_id` |
 | `src/lib/api/automation.server.ts` | SELECT automation_state scoped by `organization_id` |
 | `src/lib/api/interactions.server.ts` | Correlated subquery scoped by `organization_id` |
 | `src/lib/api/diagnostics.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getQueueTelemetry`, `forceRetryQueueItems`, `getFailedQueueItems` |
 | `src/lib/telemetry.server.ts` | Added `requireRole(ROLES.SUPER_ADMIN)` to `getMilestoneStats` |
-| `src/lib/api/scheduling.server.ts` | `bookSlot` UPDATE rewritten with bound `$N` params — no string interpolation |
+| `src/lib/api/scheduling.server.ts` | `bookSlot`/`reserveSlot` orgId from `requireOrg()` — removed `organizationId` from input validators; SQL injection fix with bound params |
 | `src/lib/db.server.ts` | 5 new performance indexes |
 | `src/__tests__/e2e-simulation.test.ts` | **New** — 15 E2E lifecycle tests |
 | `src/__tests__/reconciliation.test.ts` | +7 adversarial tests (idempotency, stale replay, partial match) |
 | `src/__tests__/encryption.test.ts` | +8 adversarial tests (key rotation, regression, missing org key) |
-| `src/__tests__/tenant-isolation-p0.test.ts` | **New** — 18 adversarial tests proving all P0 fixes |
-| `src/__tests__/scheduling-injection.test.ts` | **New** — 5 adversarial tests for SQL injection fix |
+| `src/__tests__/tenant-isolation-p0.test.ts` | 22 adversarial tests (P0-1 through P0-6) |
+| `src/__tests__/scheduling-injection.test.ts` | 6 adversarial tests for SQL injection fix + orgId provenance |
+| `src/__tests__/concurrency.test.ts` | Updated to remove `organizationId` from test data |
+| `src/__tests__/notification-queue.test.ts` | Existing queue tests updated for per-tenant dispatch |
 
 ## Test Results
 
-- **634 tests / 54 files** — all passing
+- **639 tests / 54 files** — all passing
 - **Build**: zero errors (only pre-existing `inputValidator()` deprecation warnings)
-- **New tests added**: 46 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 18 tenant isolation P0 adversarial + 5 scheduling injection adversarial — net after consolidation)
+- **New tests added**: 50 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 22 tenant isolation P0 adversarial + 6 scheduling injection adversarial + 2 concurrency updated — net after consolidation)
 
 ## References
 

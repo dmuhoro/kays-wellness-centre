@@ -270,9 +270,30 @@ export async function processQueue({
   return { processed, failed };
 }
 
-export async function processNotifications(): Promise<{ processed: number; failed: number }> {
+export async function processNotifications({
+  dispatch = dispatchNotification,
+}: {
+  dispatch?: typeof dispatchNotification;
+} = {}): Promise<{ processed: number; failed: number }> {
   try {
-    return await processQueue({ batchSize: 10 });
+    const schemaOk = await ensureQueueSchema();
+    if (!schemaOk) return { processed: 0, failed: 0 };
+
+    const db = await getDb();
+    const tenants = await db.unsafe<Array<{ tenant_id: string }>>(
+      `SELECT DISTINCT tenant_id FROM notification_queue WHERE status = 'pending' AND next_retry_at <= CURRENT_TIMESTAMP`,
+    );
+
+    let totalProcessed = 0;
+    let totalFailed = 0;
+
+    for (const { tenant_id } of tenants) {
+      const result = await processQueue({ batchSize: 10, tenantId: tenant_id, dispatch });
+      totalProcessed += result.processed;
+      totalFailed += result.failed;
+    }
+
+    return { processed: totalProcessed, failed: totalFailed };
   } catch (err) {
     logger.error("processNotifications failed", {
       event: EVENTS.QUEUE_SYNC_FAILURE,
