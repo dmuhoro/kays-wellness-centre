@@ -250,3 +250,190 @@ describe("Phone Normalization", () => {
     expect(result.phone).toBe("254712345678");
   });
 });
+
+describe("Reconciliation - Duplicate Webhook (Identical Payload)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("returns unmatched on second delivery of identical webhook", async () => {
+    // First delivery: single invoice matches, auto-paid
+    mockDb.unsafe
+      .mockResolvedValueOnce([{ id: 10, lead_id: 5, total_amount: 2500, status: "issued", invoice_number: "INV-001" }])
+      .mockResolvedValueOnce([{ m: null }])
+      .mockResolvedValueOnce([{ id: 20 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 1, inbound_reference: "SBI123", status: "auto_paid" }]);
+
+    const { reconcilePayment, parseInboundPayment } = await import("@/lib/reconciliation.server");
+    const parsed = parseInboundPayment("SBI12345678 Confirmed KES 2,500.00 254712345678");
+    const first = await reconcilePayment("org-1", parsed);
+    expect(first.status).toBe("auto_paid");
+    expect(first.invoiceId).toBe(10);
+
+    // Second delivery: invoice is now 'paid', excluded by WHERE status IN ('issued','draft')
+    mockDb.unsafe
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 2, inbound_reference: "SBI123", status: "unmatched" }]);
+
+    const second = await reconcilePayment("org-1", parsed);
+    expect(second.status).toBe("unmatched");
+    expect(second.invoiceId).toBeUndefined();
+  });
+
+  it("creates exactly one payment across two identical webhooks", async () => {
+    // First delivery
+    mockDb.unsafe
+      .mockResolvedValueOnce([{ id: 10, lead_id: 5, total_amount: 5000, status: "issued", invoice_number: "INV-002" }])
+      .mockResolvedValueOnce([{ m: null }])
+      .mockResolvedValueOnce([{ id: 30 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 3, status: "auto_paid" }]);
+
+    const { reconcilePayment, parseInboundPayment } = await import("@/lib/reconciliation.server");
+    const parsed = parseInboundPayment("SBI98765432 Confirmed KES 5,000.00 254798765432");
+    await reconcilePayment("org-1", parsed);
+
+    // Second delivery: same payload, stale state
+    mockDb.unsafe
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 4, status: "unmatched" }]);
+
+    await reconcilePayment("org-1", parsed);
+
+    // Only one INSERT INTO payments across both calls
+    const paymentInserts = mockDb.unsafe.mock.calls.filter(
+      ([sql]: [string]) => typeof sql === "string" && sql.includes("INSERT INTO payments"),
+    );
+    expect(paymentInserts).toHaveLength(1);
+  });
+});
+
+describe("Reconciliation - Replayed Webhook with Stale Signature", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("does not auto-pay a second invoice when same reference is replayed after state change", async () => {
+    // First delivery: auto-pays invoice #10
+    mockDb.unsafe
+      .mockResolvedValueOnce([{ id: 10, lead_id: 5, total_amount: 3000, status: "issued", invoice_number: "INV-010" }])
+      .mockResolvedValueOnce([{ m: null }])
+      .mockResolvedValueOnce([{ id: 50 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 6, status: "auto_paid" }]);
+
+    const { reconcilePayment, parseInboundPayment } = await import("@/lib/reconciliation.server");
+    const parsed = parseInboundPayment("SBI111222333 Confirmed KES 3,000.00 2547000111222");
+    const first = await reconcilePayment("org-1", parsed);
+    expect(first.status).toBe("auto_paid");
+    expect(first.invoiceId).toBe(10);
+
+    // Second delivery: invoice #10 is now 'paid', no other invoice matches → unmatched
+    mockDb.unsafe
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 7, status: "unmatched" }]);
+
+    const second = await reconcilePayment("org-1", parsed);
+    expect(second.status).toBe("unmatched");
+
+    // Exactly one UPDATE invoices SET status = 'paid' across both calls
+    const paidUpdates = mockDb.unsafe.mock.calls.filter(
+      ([sql]: [string]) => typeof sql === "string" && sql.includes("UPDATE invoices SET status = 'paid'"),
+    );
+    expect(paidUpdates).toHaveLength(1);
+  });
+
+  it("second replay finds no candidates when invoice was already marked paid", async () => {
+    // First delivery
+    mockDb.unsafe
+      .mockResolvedValueOnce([{ id: 20, lead_id: 8, total_amount: 7500, status: "issued", invoice_number: "INV-020" }])
+      .mockResolvedValueOnce([{ m: null }])
+      .mockResolvedValueOnce([{ id: 60 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 8, status: "auto_paid" }]);
+
+    const { reconcilePayment, parseInboundPayment } = await import("@/lib/reconciliation.server");
+    const parsed = parseInboundPayment("SBI444555666 Confirmed KES 7,500.00 2547000333444");
+    await reconcilePayment("org-1", parsed);
+
+    // Second delivery: candidates query returns empty (invoice is 'paid')
+    mockDb.unsafe.mockResolvedValueOnce([]);
+
+    // Unmatched path logs to reconciliation_log
+    mockDb.unsafe.mockResolvedValueOnce([{ id: 9, status: "unmatched" }]);
+
+    const second = await reconcilePayment("org-1", parsed);
+    expect(second.status).toBe("unmatched");
+
+    // Candidate query was called twice (once per delivery), both with status IN ('issued','draft')
+    const candidateQueries = mockDb.unsafe.mock.calls.filter(
+      ([sql]: [string]) => typeof sql === "string" && sql.includes("status IN ('issued', 'draft')"),
+    );
+    expect(candidateQueries).toHaveLength(2);
+  });
+});
+
+describe("Reconciliation - Partial Match (Amount Matches, Reference Doesn't)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("auto-pays on amount match even when inbound reference is unrelated to invoice number", async () => {
+    mockDb.unsafe
+      .mockResolvedValueOnce([{ id: 10, lead_id: 5, total_amount: 3000, status: "issued", invoice_number: "INV-2026-00042" }])
+      .mockResolvedValueOnce([{ m: null }])
+      .mockResolvedValueOnce([{ id: 40 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 5, status: "auto_paid" }]);
+
+    const { reconcilePayment } = await import("@/lib/reconciliation.server");
+    const result = await reconcilePayment("org-1", {
+      reference: "UNRELATED-REF-999",
+      amount: 3000,
+      phone: null,
+      rawMessage: "test partial match",
+      provider: "mpesa",
+    });
+
+    expect(result.status).toBe("auto_paid");
+    expect(result.invoiceId).toBe(10);
+  });
+
+  it("returns unmatched when no invoice amount matches", async () => {
+    mockDb.unsafe
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 1, status: "unmatched" }]);
+
+    const { reconcilePayment } = await import("@/lib/reconciliation.server");
+    const result = await reconcilePayment("org-1", {
+      reference: "SBI12345678",
+      amount: 99999,
+      phone: null,
+      rawMessage: "test no match",
+      provider: "mpesa",
+    });
+
+    expect(result.status).toBe("unmatched");
+  });
+
+  it("matches correct invoice when multiple candidates have same amount but phone disambiguates", async () => {
+    const candidates = [
+      { id: 10, lead_id: 5, total_amount: 4000, status: "issued", invoice_number: "INV-010" },
+      { id: 11, lead_id: 6, total_amount: 4000, status: "issued", invoice_number: "INV-011" },
+    ];
+    mockDb.unsafe
+      .mockResolvedValueOnce(candidates)
+      .mockResolvedValueOnce([{ phone: "254711111111" }]) // lead 5's phone
+      .mockResolvedValueOnce([{ m: null }])
+      .mockResolvedValueOnce([{ id: 70 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 10, status: "auto_paid" }]);
+
+    const { reconcilePayment } = await import("@/lib/reconciliation.server");
+    const result = await reconcilePayment("org-1", {
+      reference: "WRONG-REF-BUT-RIGHT-AMOUNT",
+      amount: 4000,
+      phone: "0711111111",
+      rawMessage: "test partial with phone",
+      provider: "mpesa",
+    });
+
+    expect(result.status).toBe("auto_paid");
+    expect(result.invoiceId).toBe(10);
+  });
+});
