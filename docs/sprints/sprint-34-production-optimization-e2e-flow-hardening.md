@@ -139,3 +139,7 @@ The `bookSlot` UPDATE at line 240 interpolated `leadId` and `organizationId` dir
 - **634 tests / 54 files** — all passing
 - **Build**: zero errors (only pre-existing `inputValidator()` deprecation warnings)
 - **New tests added**: 46 (15 E2E simulation + 7 reconciliation adversarial + 8 encryption adversarial + 18 tenant isolation P0 adversarial + 5 scheduling injection adversarial — net after consolidation)
+
+## References
+
+- **Architecture doc**: [`docs/architecture.md`](../architecture.md) — full system architecture generated from verified source code (request lifecycle, auth flow, every server file one-liner, DB schema, route structure, known gaps, test inventory)
