@@ -188,4 +188,20 @@
 
 ---
 
+## D12: JWT Revocation Not Supported — Logout Is Client-Side Only
+
+**Context:** The `logout` endpoint clears the `kwc_session` cookie via `deleteCookie()`, but the HMAC-signed JWT inside it remains valid until its natural 24h expiry. There is no server-side session store, token denylist, or version counter. Any process that captured the token before logout can continue using it.
+
+**Decision:** Accepted for v1 pilot. A compromised token remains valid until its 24h expiry regardless of logout.
+
+**Consequence:**
+- Session invalidation is best-effort — the cookie is deleted from the browser but the token itself is not revoked
+- If a token is exfiltrated (XSS, MITM), an attacker can use it for up to 24 hours
+- No server-side state is required — the current architecture remains stateless and simple
+- Future: move to short-lived access tokens (15 min) + refresh token with a server-side revocation list or token version counter if revocation matters at scale
+
+**Status:** Accepted (Sprint 34)
+
+---
+
 *Last updated: Sprint 34*

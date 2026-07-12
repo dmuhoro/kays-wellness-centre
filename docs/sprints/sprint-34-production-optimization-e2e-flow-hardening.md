@@ -171,7 +171,7 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 | `src/__tests__/billing.test.ts` | Added permissions mock |
 | `src/__tests__/import.test.ts` | Added permissions mock |
 | `docs/release-readiness.md` | Updated: 660 tests, all RBAC closed, rate limiting added, Docker fixed, blocker count reduced |
-| `docs/decisions.md` | Added D11: PII Encryption Descoped from v1 Pilot |
+| `docs/decisions.md` | Added D11: PII Encryption Descoped from v1 Pilot; D12: JWT Revocation Not Supported — Logout Is Client-Side Only |
 
 ## Test Results
 
