@@ -2,7 +2,7 @@
 
 ## Summary
 
-Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, CI pipeline, in-memory rate limiting, RBAC completeness (12 guarded functions), Docker build fix, Docker Compose, JWT revocation decision, Google reviews descoped. **660 tests / 58 files — all passing.** Docker build verified (`ca825578b2dc`).
+Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, CI pipeline, in-memory rate limiting, RBAC completeness (12 guarded functions), Docker build fix, Docker Compose, JWT revocation decision, Google reviews descoped, pilot scope doc. **660 tests / 58 files — all passing.** Docker build verified (`ca825578b2dc`).
 
 ## Audit Findings
 
@@ -170,8 +170,10 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 | `src/__tests__/analytics.test.ts` | Added permissions mock |
 | `src/__tests__/billing.test.ts` | Added permissions mock |
 | `src/__tests__/import.test.ts` | Added permissions mock |
-| `docs/release-readiness.md` | Updated: 660 tests, all RBAC closed, rate limiting added, Docker fixed, blocker count reduced |
-| `docs/decisions.md` | Added D11: PII Encryption Descoped from v1 Pilot; D12: JWT Revocation Not Supported — Logout Is Client-Side Only |
+| `docs/release-readiness.md` | Updated: 660 tests, all RBAC closed, rate limiting added, Docker fixed, blocker count reduced, Google reviews descoped from pilot |
+| `docs/decisions.md` | Added D11: PII Encryption Descoped from v1 Pilot; D12: JWT Revocation Not Supported |
+| `docs/pilot-scope-day-1.md` | **New** — 14-day pilot feature scope with 10 workflows, cross-referenced against release-readiness. WhatsApp outbound (confirmation/reminder) included; inbound webhooks, automation triggers, media storage out of scope. |
+| `docs/sprints/sprint-34-*.md` | Updated with Docker build result, Google descope, lru-cache fix, pilot scope doc |
 
 ## Test Results
 
@@ -187,6 +189,7 @@ Both `bookSlot` and `reserveSlot` accepted `organizationId` as a client-supplied
 - **Code standards**: [`docs/code-standards.md`](../code-standards.md) — file naming, createServerFn pattern, Zod schema placement, error handling patterns, logger convention, tenant scoping
 - **DB contracts**: [`docs/db-contracts.md`](../db-contracts.md) — every table with columns, tenant-scoping verdict, write ownership, coupling risks
 - **Decisions**: [`docs/decisions.md`](../decisions.md) — 10 architectural decisions with context, decision, consequence, and status
+- **Pilot scope**: [`docs/pilot-scope-day-1.md`](../pilot-scope-day-1.md) — 10 workflows for Kay's first 14 days, every item IMPLEMENTED+TESTED. WhatsApp outbound (confirmation/reminder) included as visible value; rest of WhatsApp stack out of scope.
 - **Sprint cross-reference**: [`docs/sprint-cross-reference.md`](../sprint-cross-reference.md) — every sprint claim audited against code/tests (IMPLEMENTED+TESTED / PARTIAL / ASPIRATIONAL)
-- **Release readiness**: [`docs/release-readiness.md`](../release-readiness.md) — July 31 go/no-go checklist with 60 items, test citations, manual verification steps, and 7 blockers identified
+- **Release readiness**: [`docs/release-readiness.md`](../release-readiness.md) — July 31 go/no-go checklist with 71 items, test citations, manual verification steps, and 4 blockers identified
 - **Agent rules**: [`AGENTS.md`](../../AGENTS.md) — 9 rules for all agents working in this repo (generated files, tenant-scoping docs, test requirements, dependency justification, diagnostic test marking)
