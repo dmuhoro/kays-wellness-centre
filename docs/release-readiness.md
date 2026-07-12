@@ -148,7 +148,7 @@
 | 62 | 6-stage pipeline board | **PASS** | `pipeline-board.test.ts` |
 | 63 | Retention scoring (RFM) | **PASS** | `marketing-automation.test.ts` — 39 tests |
 | 64 | Satisfaction prompts / NPS | **PASS** | `marketing-reviews.test.ts` — 39 tests |
-| 65 | **Auto-submit reviews to Google** | **FAIL** | `review_submissions` table exists but no Google API integration. Reviews are logged, not submitted. |
+| 65 | **Auto-submit reviews to Google** | **DESCOPED** | Sentiment classification (NPS ≥ 9 → promoter detection) ships and is tested. Auto-routing to Google Business Profile API removed from July 31 pilot scope. Requires: Google API client library, OAuth 2.0 service account, worker for pending submissions, and NPS feedback UI. |
 
 ### Data Export
 
@@ -176,7 +176,6 @@
 | 47 | Real M-Pesa reconciliation unverified | **MEDIUM** — requires staging M-Pesa account | — |
 | 56 | SSE real-time delivery unverified | **LOW** — UI may not update without refresh | — |
 | 60 | Paywall UI unverified | **LOW** — subscription enforcement may not work in UI | — |
-| 65 | No Google review auto-submission | **LOW** — reviews are logged but not submitted | — |
 
 ---
 
@@ -185,6 +184,7 @@
 | # | Gap | Rationale |
 |---|-----|-----------|
 | 50 | PII encryption descoped from v1 | Infrastructure tested but not wired into write paths. Will be wired in v2. |
+| 65 | Google review auto-submission descoped from v1 | Sentiment classification ships. Google Business Profile API integration requires new subsystem (OAuth, API client, worker, UI). Will be scoped independently post-pilot. |
 
 ---
 
@@ -194,7 +194,7 @@
 |---|--------|-------|-------|
 | 1 | Verify `SESSION_SECRET` is set in Vercel env (app now throws at boot if default) | — | ☐ |
 | 2 | Change `DEFAULT_ADMIN_PASSWORD` from `"admin0726"` after first login | — | ☐ |
-| 3 | Run `docker build -t kwc .` and verify it succeeds | — | ☐ |
+| 3 | Run `docker build -t kwc .` and verify it succeeds | **PASS** (`ca825578b2dc`) | ✓ |
 | 4 | Test real M-Pesa CSV upload in staging environment | — | ☐ |
 | 5 | Test WhatsApp message delivery with real phone number in staging | — | ☐ |
 | 6 | Open admin dashboard, update a lead in another tab, verify SSE updates UI | — | ☐ |

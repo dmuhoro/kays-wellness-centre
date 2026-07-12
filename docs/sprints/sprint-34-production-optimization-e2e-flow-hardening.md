@@ -2,7 +2,7 @@
 
 ## Summary
 
-Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, CI pipeline, in-memory rate limiting, RBAC completeness (12 guarded functions), Docker build fix, and Docker Compose. **660 tests / 58 files — all passing.**
+Multi-tenant security audit, DB index coverage, E2E lifecycle simulation test, adversarial test coverage, key rotation bug fix, tenant isolation hardening, production boot guard, logout endpoint, CI pipeline, in-memory rate limiting, RBAC completeness (12 guarded functions), Docker build fix, Docker Compose, JWT revocation decision, Google reviews descoped. **660 tests / 58 files — all passing.** Docker build verified (`ca825578b2dc`).
 
 ## Audit Findings
 
